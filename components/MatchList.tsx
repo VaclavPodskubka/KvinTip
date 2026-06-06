@@ -208,7 +208,7 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
   )
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {matches.map(match => {
         const notAccepted = whoNotAccepted(match)
         const isReferee = match.referee === userId
@@ -218,9 +218,8 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
 
         return (
           <div key={match.id} style={isLive ? glassGreen : glass}
-            className="p-5 relative overflow-hidden">
+            className="p-4 relative overflow-hidden">
 
-            {/* Live pulzující border efekt */}
             {isLive && (
               <>
                 <div className="absolute inset-0 rounded-2xl pointer-events-none animate-pulse"
@@ -230,20 +229,8 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               </>
             )}
 
-            {/* Header */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-                  style={{
-                    background: 'rgba(168,85,247,0.15)',
-                    border: '1px solid rgba(168,85,247,0.25)',
-                    color: '#c084fc',
-                  }}>
-                  {match.sport}
-                </span>
-                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{match.format}</span>
-              </div>
-
+            {/* Status badge — nahoře na středu na mobilu */}
+            <div className="flex justify-center mb-3">
               <span className="text-xs font-bold px-3 py-1 rounded-full"
                 style={
                   isLive ? {
@@ -256,8 +243,8 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
                     border: '1px solid rgba(255,255,255,0.1)',
                     color: 'rgba(255,255,255,0.4)',
                   } : {
-                    background: 'rgba(251,191,36,0.15)',
-                    border: '1px solid rgba(251,191,36,0.3)',
+                    background: 'rgba(251,191,36,0.12)',
+                    border: '1px solid rgba(251,191,36,0.25)',
                     color: '#fbbf24',
                   }
                 }>
@@ -265,52 +252,65 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               </span>
             </div>
 
-            {/* Týmy + skóre */}
-            <div className="flex items-center gap-3 mb-3 flex-wrap">
-              <span className="font-bold text-sm" style={{ color: '#93c5fd' }}>
+            {/* Sport + formát */}
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                style={{
+                  background: 'rgba(168,85,247,0.15)',
+                  border: '1px solid rgba(168,85,247,0.25)',
+                  color: '#c084fc',
+                }}>
+                {match.sport}
+              </span>
+              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{match.format}</span>
+            </div>
+
+            {/* Týmy + skóre — vždy na střed */}
+            <div className="flex flex-col items-center gap-2 mb-3">
+              <span className="font-bold text-sm text-center" style={{ color: '#93c5fd' }}>
                 {match.teamA.map(getName).join(' + ')}
               </span>
 
-              {(isLive || isFinished) && (
-                <div className="flex items-center gap-2 px-3 py-1 rounded-xl"
+              {(isLive || isFinished) ? (
+                <div className="flex items-center gap-3 px-4 py-2 rounded-xl"
                   style={{
                     background: isLive ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.06)',
                     border: isLive ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(255,255,255,0.1)',
                     boxShadow: isLive ? '0 0 16px rgba(34,197,94,0.15)' : 'none',
                   }}>
-                  <span className="text-xl font-black" style={{ color: 'white', fontVariantNumeric: 'tabular-nums' }}>
+                  <span className="text-2xl font-black" style={{ color: 'white', fontVariantNumeric: 'tabular-nums' }}>
                     {isFinished && match.result ? match.result.scoreA : (match.liveScoreA ?? 0)}
                   </span>
-                  <span style={{ color: 'rgba(255,255,255,0.2)' }}>:</span>
-                  <span className="text-xl font-black" style={{ color: 'white', fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '1.25rem' }}>:</span>
+                  <span className="text-2xl font-black" style={{ color: 'white', fontVariantNumeric: 'tabular-nums' }}>
                     {isFinished && match.result ? match.result.scoreB : (match.liveScoreB ?? 0)}
                   </span>
                 </div>
+              ) : (
+                <span className="text-xs font-semibold px-3 py-1 rounded-full"
+                  style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  vs
+                </span>
               )}
 
-              {!isLive && !isFinished && (
-                <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.75rem' }}>vs</span>
-              )}
-
-              <span className="font-bold text-sm" style={{ color: '#fca5a5' }}>
+              <span className="font-bold text-sm text-center" style={{ color: '#fca5a5' }}>
                 {match.teamB.map(getName).join(' + ')}
               </span>
             </div>
 
             {/* Info řádek */}
-            <div className="flex gap-3 flex-wrap mb-3">
+            <div className="flex gap-2 flex-wrap justify-center mb-3">
               {[
-                `Do ${match.goals} gólů`,
-                `${match.credits} kr/hráč`,
-                match.format,
+                `⚽ Do ${match.goals} gólů`,
+                `💰 ${match.credits} kr/hráč`,
               ].map(info => (
-                <span key={info} className="text-xs px-2 py-0.5 rounded-full"
-                  style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <span key={info} className="text-xs px-2.5 py-1 rounded-full"
+                  style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.07)' }}>
                   {info}
                 </span>
               ))}
               {match.referee && (
-                <span className="text-xs px-2 py-0.5 rounded-full"
+                <span className="text-xs px-2.5 py-1 rounded-full"
                   style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }}>
                   ⚖️ {getName(match.referee)}
                 </span>
@@ -319,46 +319,53 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
 
             {/* Čeká na */}
             {match.status === 'pending' && notAccepted.length > 0 && (
-              <div className="mb-3 px-3 py-2 rounded-xl text-xs"
-                style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)', color: '#fbbf24' }}>
-                Čeká na: {notAccepted.map(getName).join(', ')}
+              <div className="mb-3 px-3 py-2 rounded-xl text-xs text-center"
+                style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)', color: 'rgba(255,255,255,0.4)' }}>
+                Čeká na:{' '}
+                <span style={{ color: '#fbbf24' }}>{notAccepted.map(getName).join(', ')}</span>
               </div>
             )}
 
-            {/* Přijmout */}
-            {match.status === 'pending' && !hasAccepted && (
-              <button onClick={() => acceptMatch(match)}
-                className="text-sm font-bold px-4 py-2 rounded-xl transition-all duration-200"
-                style={{
-                  background: 'rgba(168,85,247,0.2)',
-                  border: '1px solid rgba(168,85,247,0.4)',
-                  color: '#e9d5ff',
-                }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget as HTMLButtonElement
-                  el.style.background = 'rgba(168,85,247,0.35)'
-                  el.style.boxShadow = '0 0 16px rgba(168,85,247,0.3)'
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget as HTMLButtonElement
-                  el.style.background = 'rgba(168,85,247,0.2)'
-                  el.style.boxShadow = 'none'
-                }}
-              >
-                Přijmout ({match.credits} kreditů)
-              </button>
-            )}
-
-            {match.status === 'pending' && hasAccepted && (
-              <span className="text-xs font-medium" style={{ color: '#4ade80' }}>✓ Přijato tebou</span>
+            {/* Přijmout / Přijato */}
+            {match.status === 'pending' && (
+              <div className="flex justify-center">
+                {!hasAccepted ? (
+                  <button onClick={() => acceptMatch(match)}
+                    className="text-sm font-bold px-5 py-2 rounded-xl transition-all duration-200 w-full"
+                    style={{
+                      background: 'rgba(168,85,247,0.2)',
+                      border: '1px solid rgba(168,85,247,0.4)',
+                      color: '#e9d5ff',
+                      maxWidth: '280px',
+                    }}
+                    onMouseEnter={e => {
+                      const el = e.currentTarget as HTMLButtonElement
+                      el.style.background = 'rgba(168,85,247,0.35)'
+                      el.style.boxShadow = '0 0 16px rgba(168,85,247,0.3)'
+                    }}
+                    onMouseLeave={e => {
+                      const el = e.currentTarget as HTMLButtonElement
+                      el.style.background = 'rgba(168,85,247,0.2)'
+                      el.style.boxShadow = 'none'
+                    }}
+                  >
+                    Přijmout · {match.credits} kreditů
+                  </button>
+                ) : (
+                  <span className="text-xs font-medium px-3 py-1.5 rounded-full"
+                    style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: '#4ade80' }}>
+                    ✓ Přijato tebou
+                  </span>
+                )}
+              </div>
             )}
 
             {/* Rozhodčí panel */}
             {isLive && isReferee && (
-              <div className="mt-4 pt-4 flex flex-col gap-3"
+              <div className="mt-4 pt-4 flex flex-col gap-3 items-center"
                 style={{ borderTop: '1px solid rgba(34,197,94,0.2)' }}>
                 <p className="text-xs font-bold" style={{ color: '#fbbf24' }}>⚖️ Rozhodčí — aktualizuj skóre</p>
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-3 flex-wrap justify-center">
                   <div className="flex items-center gap-2">
                     <span className="text-xs" style={{ color: '#93c5fd' }}>Tým A</span>
                     <input type="number" min={0}
@@ -366,7 +373,7 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
                       onChange={e => setScores(prev => ({
                         ...prev, [match.id]: { ...prev[match.id], a: Number(e.target.value) }
                       }))}
-                      className="w-16 text-sm text-center rounded-xl px-2 py-1.5"
+                      className="w-14 text-sm text-center rounded-xl px-2 py-1.5"
                       style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'white' }}
                     />
                   </div>
@@ -377,32 +384,35 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
                       onChange={e => setScores(prev => ({
                         ...prev, [match.id]: { ...prev[match.id], b: Number(e.target.value) }
                       }))}
-                      className="w-16 text-sm text-center rounded-xl px-2 py-1.5"
+                      className="w-14 text-sm text-center rounded-xl px-2 py-1.5"
                       style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'white' }}
                     />
                     <span className="text-xs" style={{ color: '#fca5a5' }}>Tým B</span>
                   </div>
+                </div>
+                <div className="flex gap-2 w-full justify-center">
                   <button onClick={() => updateLiveScore(match)}
-                    className="text-xs font-bold px-4 py-2 rounded-xl transition-all"
-                    style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.4)', color: '#93c5fd' }}>
+                    className="text-xs font-bold px-4 py-2 rounded-xl transition-all flex-1"
+                    style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.4)', color: '#93c5fd', maxWidth: '140px' }}>
                     Aktualizovat
                   </button>
                   <button onClick={() => finishMatch(match)} disabled={submitting === match.id}
-                    className="text-xs font-bold px-4 py-2 rounded-xl transition-all"
+                    className="text-xs font-bold px-4 py-2 rounded-xl transition-all flex-1"
                     style={{
                       background: 'rgba(34,197,94,0.2)',
                       border: '1px solid rgba(34,197,94,0.5)',
                       color: '#4ade80',
                       boxShadow: '0 0 12px rgba(34,197,94,0.15)',
+                      maxWidth: '140px',
                     }}>
-                    {submitting === match.id ? 'Ukládám...' : 'Dokončit zápas'}
+                    {submitting === match.id ? 'Ukládám...' : 'Dokončit'}
                   </button>
                 </div>
               </div>
             )}
 
             {isLive && !isReferee && (
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center justify-center gap-2 mt-2">
                 <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#4ade80' }} />
                 <p className="text-xs font-medium" style={{ color: '#4ade80' }}>Zápas právě probíhá</p>
               </div>
