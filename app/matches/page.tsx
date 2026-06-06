@@ -144,14 +144,16 @@ export default function Matches() {
           </p>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight" style={{ color: 'white' }}>Zápasy</h1>
         </div>
-        <button onClick={() => setShowForm(!showForm)}
+        <button
+          onClick={() => setShowForm(!showForm)}
           className="font-bold py-2 px-4 md:py-2.5 md:px-6 rounded-xl transition-all duration-200 text-sm"
           style={{
             background: showForm ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #a855f7, #7c3aed)',
             border: showForm ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(168,85,247,0.5)',
             color: 'white',
             boxShadow: showForm ? 'none' : '0 0 20px rgba(168,85,247,0.3)',
-          }}>
+          }}
+        >
           {showForm ? '✕' : '+ Nový'}
         </button>
       </div>
@@ -159,7 +161,7 @@ export default function Matches() {
       {/* Formulář */}
       {showForm && (
         <div className="mb-6 p-4 md:p-6" style={glass}>
-          <h2 className="font-bold text-lg mb-5" style={{ color: 'white' }}>Vytvořit zápas</h2>
+          <h2 className="font-bold text-base mb-4" style={{ color: 'white' }}>Vytvořit zápas</h2>
 
           {/* Sport */}
           <div className="mb-4">
@@ -185,19 +187,23 @@ export default function Matches() {
             </div>
           </div>
 
-          {/* Týmy — na mobilu pod sebou, na PC vedle sebe */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          {/* Týmy — na mobilu pod sebou */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
             {(['A', 'B'] as const).map(team => (
               <div key={team} className="p-3 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <p className="text-xs font-semibold mb-2 uppercase tracking-wider"
+                style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${team === 'A' ? 'rgba(59,130,246,0.15)' : 'rgba(239,68,68,0.15)'}` }}>
+                <p className="text-xs font-semibold mb-2 uppercase tracking-wider flex items-center gap-1.5"
                   style={{ color: team === 'A' ? '#93c5fd' : '#fca5a5' }}>
                   Tým {team}
-                  <span className="ml-1 normal-case" style={{ color: 'rgba(255,255,255,0.2)' }}>
-                    ({(team === 'A' ? teamA : teamB).length}/{maxPerTeam})
+                  <span className="px-1.5 py-0.5 rounded-full text-xs font-bold"
+                    style={{
+                      background: team === 'A' ? 'rgba(59,130,246,0.15)' : 'rgba(239,68,68,0.15)',
+                      color: team === 'A' ? '#93c5fd' : '#fca5a5',
+                    }}>
+                    {(team === 'A' ? teamA : teamB).length}/{maxPerTeam}
                   </span>
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {players.map(p => {
                     const inA = teamA.includes(p.uid)
                     const inB = teamB.includes(p.uid)
@@ -230,7 +236,7 @@ export default function Matches() {
             {availableReferees.length === 0 ? (
               <p className="text-xs" style={{ color: '#fbbf24' }}>Nejsou dostupní rozhodčí.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {availableReferees.map(p => (
                   <button key={p.uid} onClick={() => setReferee(p.uid)}
                     style={referee === p.uid ? {
@@ -246,14 +252,14 @@ export default function Matches() {
             )}
           </div>
 
-          {/* Góly a kredity — na mobilu vedle sebe */}
-          <div className="flex gap-4 mb-5">
+          {/* Góly a kredity */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
             {[
               { label: 'Do kolika gólů', val: goals, set: setGoals },
               { label: 'Kreditů/hráč', val: credits, set: setCredits },
             ].map(({ label, val, set }) => (
-              <div key={label} className="flex-1">
-                <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>{label}</p>
+              <div key={label}>
+                <p className="text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>{label}</p>
                 <input type="number" value={val}
                   onChange={e => set(Number(e.target.value))}
                   className="w-full text-center rounded-xl px-3 py-2 text-sm font-bold"
@@ -263,9 +269,9 @@ export default function Matches() {
           </div>
 
           {/* Akce */}
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button onClick={createMatch}
-              className="flex-1 md:flex-none font-bold py-2.5 px-6 rounded-xl text-sm transition-all"
+              className="flex-1 font-bold py-2.5 px-4 rounded-xl text-sm transition-all"
               style={{
                 background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
                 border: '1px solid rgba(168,85,247,0.5)',
@@ -285,9 +291,10 @@ export default function Matches() {
 
       {/* Seznam zápasů */}
       <div className="p-4 md:p-6" style={glass}>
-        <h2 className="font-bold text-base mb-5" style={{ color: 'rgba(255,255,255,0.6)' }}>Moje zápasy</h2>
+        <h2 className="font-bold text-sm mb-4" style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Moje zápasy</h2>
         <MatchList userId={user?.uid ?? ''} players={players} />
       </div>
+
     </main>
   )
 }
