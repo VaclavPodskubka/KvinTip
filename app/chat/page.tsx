@@ -49,6 +49,7 @@ export default function Chat() {
   const [groupMessages, setGroupMessages] = useState<Record<string, Message[]>>({})
   const [text, setText] = useState('')
   const [showNewGroup, setShowNewGroup] = useState(false)
+  const [showSidebar, setShowSidebar] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [inviteMembers, setInviteMembers] = useState<string[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -111,19 +112,16 @@ export default function Chat() {
   const sendMessage = async () => {
     if (!text.trim() || !user) return
     const profile = players.find(p => p.uid === user.uid)
-
     if (activeTab === 'global') {
       await addDoc(collection(db, 'globalChat'), {
-        text: text.trim(),
-        userId: user.uid,
+        text: text.trim(), userId: user.uid,
         userName: profile?.displayName ?? 'Neznámý',
         userAvatar: profile?.avatar ?? null,
         createdAt: serverTimestamp(),
       })
     } else {
       await addDoc(collection(db, 'chatGroups', activeTab, 'messages'), {
-        text: text.trim(),
-        userId: user.uid,
+        text: text.trim(), userId: user.uid,
         userName: profile?.displayName ?? 'Neznámý',
         userAvatar: profile?.avatar ?? null,
         createdAt: serverTimestamp(),
@@ -133,14 +131,10 @@ export default function Chat() {
   }
 
   const createGroup = async () => {
-    if (!groupName.trim() || !user) return
-    if (inviteMembers.length === 0) return
-
+    if (!groupName.trim() || !user || inviteMembers.length === 0) return
     await addDoc(collection(db, 'chatGroups'), {
-      name: groupName.trim(),
-      createdBy: user.uid,
-      members: [user.uid],
-      pendingMembers: inviteMembers,
+      name: groupName.trim(), createdBy: user.uid,
+      members: [user.uid], pendingMembers: inviteMembers,
       createdAt: serverTimestamp(),
     })
     setGroupName('')
@@ -152,25 +146,20 @@ export default function Chat() {
     if (!user) return
     await updateDoc(doc(db, 'chatGroups', groupId), {
       members: arrayUnion(user.uid),
-      pendingMembers: groups
-        .find(g => g.id === groupId)
-        ?.pendingMembers.filter(uid => uid !== user.uid) ?? []
+      pendingMembers: groups.find(g => g.id === groupId)?.pendingMembers.filter(uid => uid !== user.uid) ?? []
     })
   }
 
-  const activeMessages = activeTab === 'global'
-    ? globalMessages
-    : groupMessages[activeTab] ?? []
-
+  const activeMessages = activeTab === 'global' ? globalMessages : groupMessages[activeTab] ?? []
   const activeGroup = groups.find(g => g.id === activeTab)
   const isPending = activeGroup && !activeGroup.members.includes(user?.uid ?? '')
 
   const formatTime = (ts: Timestamp | null) => {
     if (!ts?.seconds) return ''
-    return new Date(ts.seconds * 1000).toLocaleTimeString('cs-CZ', {
-      hour: '2-digit', minute: '2-digit'
-    })
+    return new Date(ts.seconds * 1000).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })
   }
+
+  const activeTitle = activeTab === 'global' ? '🌍 Globální chat' : activeGroup?.name ?? ''
 
   if (loading) return (
     <main className="flex min-h-screen items-center justify-center" style={{ background: '#0a0a0f' }}>
@@ -183,156 +172,141 @@ export default function Chat() {
   )
 
   return (
-    <main className="flex" style={{ height: 'calc(100vh - 57px)', background: 'transparent' }}>
+    <main className="flex" style={{ height: 'calc(100vh - 57px)', background: 'transparent', position: 'relative' }}>
 
-      {/* Sidebar */}
-      <div className="w-64 flex flex-col shrink-0"
+      {/* ── MOBILNÍ OVERLAY pro sidebar ── */}
+      {showSidebar && (
+        <div
+          className="fixed inset-0 z-30 md:hidden"
+          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
+
+      {/* ── SIDEBAR ── */}
+      <div
+        className="flex flex-col shrink-0 z-40"
         style={{
-          background: 'rgba(255,255,255,0.03)',
+          width: '17rem',
+          background: 'rgba(10,10,18,0.97)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           borderRight: '1px solid rgba(255,255,255,0.07)',
-        }}>
-
-        {/* Sidebar header */}
+          // Na mobilu: fixed drawer, na PC: normální
+          position: typeof window !== 'undefined' && window.innerWidth < 768 ? 'fixed' : 'relative',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          transform: showSidebar ? 'translateX(0)' : undefined,
+          transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
+        }}
+      >
         <div className="flex items-center justify-between px-4 py-4"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <div>
-            <p style={{ color: 'rgba(168,85,247,0.7)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Zprávy
-            </p>
+            <p style={{ color: 'rgba(168,85,247,0.7)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Zprávy</p>
             <h2 className="font-black text-base" style={{ color: 'white' }}>Chat</h2>
           </div>
-          <button
-            onClick={() => setShowNewGroup(true)}
+          <button onClick={() => setShowNewGroup(true)}
             className="text-xs font-bold px-3 py-1.5 rounded-xl transition-all duration-200"
-            style={{
-              background: 'rgba(168,85,247,0.15)',
-              border: '1px solid rgba(168,85,247,0.3)',
-              color: '#e9d5ff',
-            }}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLButtonElement
-              el.style.background = 'rgba(168,85,247,0.25)'
-              el.style.boxShadow = '0 0 12px rgba(168,85,247,0.2)'
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLButtonElement
-              el.style.background = 'rgba(168,85,247,0.15)'
-              el.style.boxShadow = 'none'
-            }}
-          >
+            style={{ background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', color: '#e9d5ff' }}>
             + Skupina
           </button>
         </div>
 
-        {/* Sidebar seznam */}
         <div className="flex-1 overflow-y-auto py-2">
-          {/* Globální chat */}
-          <button
-            onClick={() => setActiveTab('global')}
+          <button onClick={() => { setActiveTab('global'); setShowSidebar(false) }}
             className="w-full text-left px-3 py-2.5 flex items-center gap-3 mx-1 rounded-xl transition-all duration-200"
             style={{
               width: 'calc(100% - 8px)',
               background: activeTab === 'global' ? 'rgba(168,85,247,0.15)' : 'transparent',
               border: activeTab === 'global' ? '1px solid rgba(168,85,247,0.25)' : '1px solid transparent',
-            }}
-          >
+            }}>
             <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
-              style={{ background: 'rgba(168,85,247,0.25)', border: '1px solid rgba(168,85,247,0.3)' }}>
-              🌍
-            </div>
+              style={{ background: 'rgba(168,85,247,0.25)', border: '1px solid rgba(168,85,247,0.3)' }}>🌍</div>
             <div>
-              <p className="text-sm font-bold" style={{ color: activeTab === 'global' ? '#e9d5ff' : 'rgba(255,255,255,0.7)' }}>
-                Globální chat
-              </p>
+              <p className="text-sm font-bold" style={{ color: activeTab === 'global' ? '#e9d5ff' : 'rgba(255,255,255,0.7)' }}>Globální chat</p>
               <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>Všichni hráči</p>
             </div>
           </button>
 
-          {/* Skupiny label */}
           {groups.length > 0 && (
             <div className="px-4 pt-4 pb-1">
-              <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                Skupiny
-              </p>
+              <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Skupiny</p>
             </div>
           )}
 
-          {/* Skupiny */}
           {groups.map(group => {
             const pending = group.pendingMembers?.includes(user?.uid ?? '')
             const isActive = activeTab === group.id
             return (
-              <button
-                key={group.id}
-                onClick={() => setActiveTab(group.id)}
+              <button key={group.id}
+                onClick={() => { setActiveTab(group.id); setShowSidebar(false) }}
                 className="text-left px-3 py-2.5 flex items-center gap-3 mx-1 rounded-xl transition-all duration-200"
                 style={{
                   width: 'calc(100% - 8px)',
                   background: isActive ? 'rgba(168,85,247,0.15)' : 'transparent',
                   border: isActive ? '1px solid rgba(168,85,247,0.25)' : '1px solid transparent',
-                }}
-              >
+                }}>
                 <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-black shrink-0"
                   style={{ background: 'rgba(99,102,241,0.25)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
                   {group.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold truncate" style={{ color: isActive ? '#e9d5ff' : 'rgba(255,255,255,0.7)' }}>
-                    {group.name}
-                  </p>
+                  <p className="text-sm font-bold truncate" style={{ color: isActive ? '#e9d5ff' : 'rgba(255,255,255,0.7)' }}>{group.name}</p>
                   <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{group.members.length} členů</p>
                 </div>
-                {pending && (
-                  <span className="w-2 h-2 rounded-full shrink-0 animate-pulse"
-                    style={{ background: '#fbbf24' }} />
-                )}
+                {pending && <span className="w-2 h-2 rounded-full shrink-0 animate-pulse" style={{ background: '#fbbf24' }} />}
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Hlavní chat oblast */}
+      {/* ── HLAVNÍ OBLAST ── */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Chat header */}
-        <div className="px-6 py-3.5 flex items-center"
+        {/* Chat header — mobilní hamburger vlevo */}
+        <div className="px-3 md:px-6 py-3 flex items-center gap-3"
           style={{
             background: 'rgba(255,255,255,0.03)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             borderBottom: '1px solid rgba(255,255,255,0.07)',
           }}>
-          {activeTab === 'global' ? (
-            <div>
-              <p className="font-black text-base" style={{ color: 'white' }}>🌍 Globální chat</p>
-              <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>{players.length} hráčů</p>
-            </div>
-          ) : activeGroup ? (
-            <div>
-              <p className="font-black text-base" style={{ color: 'white' }}>{activeGroup.name}</p>
-              <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>
+
+          {/* Hamburger — jen mobil */}
+          <button
+            className="md:hidden flex flex-col gap-1 p-2 rounded-xl shrink-0"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+            onClick={() => setShowSidebar(true)}
+          >
+            <span className="block w-4 h-0.5" style={{ background: 'rgba(255,255,255,0.7)' }} />
+            <span className="block w-4 h-0.5" style={{ background: 'rgba(255,255,255,0.7)' }} />
+            <span className="block w-4 h-0.5" style={{ background: 'rgba(255,255,255,0.7)' }} />
+          </button>
+
+          <div className="flex-1 min-w-0">
+            <p className="font-black text-sm md:text-base truncate" style={{ color: 'white' }}>{activeTitle}</p>
+            {activeTab === 'global' ? (
+              <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{players.length} hráčů</p>
+            ) : activeGroup ? (
+              <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }} className="truncate">
                 {activeGroup.members.map(getName).join(', ')}
-                {(activeGroup.pendingMembers?.length ?? 0) > 0 && (
-                  <span style={{ color: '#fbbf24' }}> · {activeGroup.pendingMembers.length} čeká</span>
-                )}
               </p>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
 
         {/* Pozvánka banner */}
         {isPending && (
-          <div className="px-6 py-3 flex items-center justify-between"
+          <div className="px-4 py-3 flex items-center justify-between gap-3"
             style={{ background: 'rgba(251,191,36,0.07)', borderBottom: '1px solid rgba(251,191,36,0.15)' }}>
-            <p style={{ fontSize: '0.875rem', color: '#fbbf24' }}>
-              Byl/a jsi pozván/a do skupiny <span className="font-bold">{activeGroup?.name}</span>
+            <p style={{ fontSize: '0.8rem', color: '#fbbf24' }}>
+              Pozvánka: <span className="font-bold">{activeGroup?.name}</span>
             </p>
-            <button
-              onClick={() => acceptGroupInvite(activeTab)}
-              className="text-sm font-bold px-4 py-1.5 rounded-xl transition-all"
+            <button onClick={() => acceptGroupInvite(activeTab)}
+              className="text-xs font-bold px-3 py-1.5 rounded-xl shrink-0 transition-all"
               style={{ background: 'rgba(168,85,247,0.2)', border: '1px solid rgba(168,85,247,0.4)', color: '#e9d5ff' }}>
               Připojit se
             </button>
@@ -340,7 +314,7 @@ export default function Chat() {
         )}
 
         {/* Zprávy */}
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-1.5">
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 flex flex-col gap-1.5">
           {isPending ? (
             <div className="flex-1 flex items-center justify-center h-full">
               <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.875rem' }}>Přijmi pozvánku pro zobrazení zpráv.</p>
@@ -357,21 +331,14 @@ export default function Chat() {
 
               return (
                 <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
-
-                  {/* Avatar */}
-                  <div className="w-8 h-8 shrink-0">
+                  <div className="w-7 h-7 md:w-8 md:h-8 shrink-0">
                     {showName && (
                       msg.userAvatar ? (
-                        <Image
-                          src={msg.userAvatar}
-                          alt=""
-                          width={32}
-                          height={32}
-                          className="w-8 h-8 rounded-full object-cover"
-                          style={{ border: '1px solid rgba(255,255,255,0.1)' }}
-                        />
+                        <Image src={msg.userAvatar} alt="" width={32} height={32}
+                          className="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover"
+                          style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
                       ) : (
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-bold"
                           style={{ background: isMe ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.08)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}>
                           {msg.userName?.charAt(0).toUpperCase()}
                         </div>
@@ -379,13 +346,12 @@ export default function Chat() {
                     )}
                   </div>
 
-                  <div className={`max-w-xs lg:max-w-md flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                  <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                    style={{ maxWidth: 'min(75vw, 28rem)' }}>
                     {showName && !isMe && (
-                      <p className="text-xs mb-1 ml-1" style={{ color: 'rgba(168,85,247,0.7)', fontWeight: 600 }}>
-                        {msg.userName}
-                      </p>
+                      <p className="text-xs mb-1 ml-1" style={{ color: 'rgba(168,85,247,0.7)', fontWeight: 600 }}>{msg.userName}</p>
                     )}
-                    <div className="px-4 py-2.5 rounded-2xl"
+                    <div className="px-3 py-2 rounded-2xl md:px-4 md:py-2.5"
                       style={isMe ? {
                         background: 'rgba(168,85,247,0.3)',
                         border: '1px solid rgba(168,85,247,0.4)',
@@ -395,13 +361,9 @@ export default function Chat() {
                         border: '1px solid rgba(255,255,255,0.08)',
                         borderBottomLeftRadius: '0.35rem',
                       }}>
-                      <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                        {msg.text}
-                      </p>
+                      <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)', wordBreak: 'break-word' }}>{msg.text}</p>
                     </div>
-                    <p className="text-xs mt-0.5 mx-1" style={{ color: 'rgba(255,255,255,0.2)' }}>
-                      {formatTime(msg.createdAt)}
-                    </p>
+                    <p className="text-xs mt-0.5 mx-1" style={{ color: 'rgba(255,255,255,0.2)' }}>{formatTime(msg.createdAt)}</p>
                   </div>
                 </div>
               )
@@ -412,47 +374,33 @@ export default function Chat() {
 
         {/* Input */}
         {!isPending && (
-          <div className="p-4"
+          <div className="p-3 md:p-4"
             style={{
               background: 'rgba(255,255,255,0.03)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
               borderTop: '1px solid rgba(255,255,255,0.07)',
             }}>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={text}
+            <div className="flex gap-2">
+              <input type="text" value={text}
                 onChange={e => setText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                 placeholder="Napiš zprávu..."
                 maxLength={500}
-                className="flex-1 px-4 py-2.5 text-sm rounded-2xl outline-none transition-all"
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'white',
-                }}
-                onFocus={e => {
-                  e.currentTarget.style.borderColor = 'rgba(168,85,247,0.5)'
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(168,85,247,0.1)'
-                }}
-                onBlur={e => {
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-                  e.currentTarget.style.boxShadow = 'none'
-                }}
+                className="flex-1 px-3 py-2.5 text-sm rounded-2xl outline-none transition-all"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'rgba(168,85,247,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(168,85,247,0.1)' }}
+                onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.boxShadow = 'none' }}
               />
-              <button
-                onClick={sendMessage}
-                disabled={!text.trim()}
-                className="font-bold px-5 py-2.5 rounded-2xl transition-all duration-200 text-sm"
+              <button onClick={sendMessage} disabled={!text.trim()}
+                className="font-bold px-4 py-2.5 rounded-2xl transition-all duration-200 text-sm shrink-0"
                 style={{
                   background: text.trim() ? 'linear-gradient(135deg, #a855f7, #7c3aed)' : 'rgba(255,255,255,0.05)',
                   border: text.trim() ? '1px solid rgba(168,85,247,0.5)' : '1px solid rgba(255,255,255,0.07)',
                   color: text.trim() ? 'white' : 'rgba(255,255,255,0.2)',
                   boxShadow: text.trim() ? '0 0 16px rgba(168,85,247,0.25)' : 'none',
                 }}>
-                Odeslat
+                ↑
               </button>
             </div>
           </div>
@@ -463,24 +411,15 @@ export default function Chat() {
       {showNewGroup && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
-          <div className="w-full max-w-md p-6 rounded-2xl"
-            style={{
-              background: 'rgba(15,15,25,0.95)',
-              border: '1px solid rgba(168,85,247,0.2)',
-              boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(168,85,247,0.1)',
-            }}>
-            <h3 className="font-black text-lg mb-6" style={{ color: 'white' }}>Nová skupina</h3>
+          <div className="w-full max-w-md p-5 md:p-6 rounded-2xl"
+            style={{ background: 'rgba(15,15,25,0.98)', border: '1px solid rgba(168,85,247,0.2)', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}>
+            <h3 className="font-black text-lg mb-5" style={{ color: 'white' }}>Nová skupina</h3>
 
             <div className="mb-4">
-              <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                Název skupiny
-              </p>
-              <input
-                type="text"
-                value={groupName}
+              <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Název skupiny</p>
+              <input type="text" value={groupName}
                 onChange={e => setGroupName(e.target.value)}
-                placeholder="např. Foosball tým A"
-                maxLength={30}
+                placeholder="např. Foosball tým A" maxLength={30}
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
                 onFocus={e => { e.currentTarget.style.borderColor = 'rgba(168,85,247,0.5)' }}
@@ -488,55 +427,37 @@ export default function Chat() {
               />
             </div>
 
-            <div className="mb-6">
-              <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                Pozvat hráče
-              </p>
+            <div className="mb-5">
+              <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Pozvat hráče</p>
               <div className="flex flex-wrap gap-2">
-                {players
-                  .filter(p => p.uid !== user?.uid)
-                  .map(p => (
-                    <button
-                      key={p.uid}
-                      onClick={() => setInviteMembers(prev =>
-                        prev.includes(p.uid)
-                          ? prev.filter(id => id !== p.uid)
-                          : [...prev, p.uid]
-                      )}
-                      className="px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200"
-                      style={inviteMembers.includes(p.uid) ? {
-                        background: 'rgba(168,85,247,0.25)',
-                        border: '1px solid rgba(168,85,247,0.5)',
-                        color: '#e9d5ff',
-                      } : {
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        color: 'rgba(255,255,255,0.5)',
-                      }}
-                    >
-                      {p.displayName}
-                    </button>
-                  ))}
+                {players.filter(p => p.uid !== user?.uid).map(p => (
+                  <button key={p.uid}
+                    onClick={() => setInviteMembers(prev => prev.includes(p.uid) ? prev.filter(id => id !== p.uid) : [...prev, p.uid])}
+                    className="px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200"
+                    style={inviteMembers.includes(p.uid) ? {
+                      background: 'rgba(168,85,247,0.25)', border: '1px solid rgba(168,85,247,0.5)', color: '#e9d5ff',
+                    } : {
+                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)',
+                    }}>
+                    {p.displayName}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={createGroup}
+            <div className="flex gap-2">
+              <button onClick={createGroup}
                 disabled={!groupName.trim() || inviteMembers.length === 0}
-                className="font-bold py-2.5 px-6 rounded-xl text-sm transition-all"
+                className="flex-1 font-bold py-2.5 rounded-xl text-sm transition-all"
                 style={{
-                  background: groupName.trim() && inviteMembers.length > 0
-                    ? 'linear-gradient(135deg, #a855f7, #7c3aed)' : 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(168,85,247,0.4)',
-                  color: 'white',
+                  background: groupName.trim() && inviteMembers.length > 0 ? 'linear-gradient(135deg, #a855f7, #7c3aed)' : 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(168,85,247,0.4)', color: 'white',
                   opacity: !groupName.trim() || inviteMembers.length === 0 ? 0.4 : 1,
                 }}>
                 Vytvořit
               </button>
-              <button
-                onClick={() => { setShowNewGroup(false); setGroupName(''); setInviteMembers([]) }}
-                className="font-medium py-2.5 px-6 rounded-xl text-sm transition-all"
+              <button onClick={() => { setShowNewGroup(false); setGroupName(''); setInviteMembers([]) }}
+                className="font-medium py-2.5 px-4 rounded-xl text-sm transition-all"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}>
                 Zrušit
               </button>

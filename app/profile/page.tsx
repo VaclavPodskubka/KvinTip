@@ -81,9 +81,7 @@ export default function Profile() {
   const [bettingEvents, setBettingEvents] = useState<BettingEvent[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (!loading && !user) router.push('/login')
-  }, [user, loading, router])
+  useEffect(() => { if (!loading && !user) router.push('/login') }, [user, loading, router])
 
   useEffect(() => {
     if (!user) return
@@ -103,15 +101,12 @@ export default function Profile() {
     return onSnapshot(collection(db, 'matches'), (snap) => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Match))
       const finished = all
-        .filter(m => m.status === 'finished' &&
-          (m.teamA?.includes(user.uid) || m.teamB?.includes(user.uid)))
+        .filter(m => m.status === 'finished' && (m.teamA?.includes(user.uid) || m.teamB?.includes(user.uid)))
         .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0))
         .slice(0, 10)
       setMatches(finished)
-
       const staked = all
-        .filter(m => m.status === 'playing' &&
-          (m.teamA?.includes(user.uid) || m.teamB?.includes(user.uid)))
+        .filter(m => m.status === 'playing' && (m.teamA?.includes(user.uid) || m.teamB?.includes(user.uid)))
         .reduce((sum, m) => sum + (m.credits ?? 0), 0)
       setStakedCredits(staked)
     })
@@ -134,8 +129,7 @@ export default function Profile() {
     })
   }, [])
 
-  const getName = (uid: string) =>
-    players.find(p => p.uid === uid)?.displayName ?? 'Neznámý'
+  const getName = (uid: string) => players.find(p => p.uid === uid)?.displayName ?? 'Neznámý'
 
   const winRate = () => {
     const m = profile?.stats?.matches ?? 0
@@ -181,8 +175,7 @@ export default function Profile() {
       const url = URL.createObjectURL(file)
       img.onload = () => {
         const canvas = document.createElement('canvas')
-        canvas.width = size
-        canvas.height = size
+        canvas.width = size; canvas.height = size
         const ctx = canvas.getContext('2d')
         if (!ctx) { reject('Canvas error'); return }
         const minSide = Math.min(img.width, img.height)
@@ -217,158 +210,129 @@ export default function Profile() {
     </main>
   )
 
-  const statCards = [
-    { label: 'Zápasy', value: profile.stats?.matches ?? 0, color: '#c084fc' },
-    { label: 'Výhry', value: profile.stats?.wins ?? 0, color: '#4ade80' },
-    { label: 'Prohry', value: profile.stats?.losses ?? 0, color: '#f87171' },
-    { label: 'Úspěšnost', value: winRate(), color: '#fbbf24' },
-  ]
-
   return (
-    <main className="min-h-screen p-6 max-w-2xl mx-auto">
-
+    <main className="min-h-screen p-4 md:p-6 max-w-2xl mx-auto">
       <div className="fixed pointer-events-none"
-        style={{
-          top: '10%', right: '5%', width: '350px', height: '350px',
-          background: 'radial-gradient(circle, rgba(168,85,247,0.08) 0%, transparent 70%)',
-          filter: 'blur(40px)', borderRadius: '50%',
-        }} />
+        style={{ top: '10%', right: '5%', width: '350px', height: '350px', background: 'radial-gradient(circle, rgba(168,85,247,0.08) 0%, transparent 70%)', filter: 'blur(40px)', borderRadius: '50%' }} />
 
-      <div className="p-6 mb-5 opacity-100 translate-y-0 transition-all duration-700" style={glass}>
-        <div className="flex items-center gap-5">
-          <div className="relative shrink-0">
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="w-20 h-20 rounded-full overflow-hidden cursor-pointer relative group"
-              style={{ border: '2px solid rgba(168,85,247,0.3)', transition: 'border-color 0.2s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(168,85,247,0.7)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(168,85,247,0.3)' }}
-            >
+      {/* ── PROFIL KARTA ── */}
+      <div className="p-4 md:p-6 mb-4" style={glass}>
+
+        {/* Avatar + jméno + kredity */}
+        <div className="flex items-center gap-4 mb-4">
+          {/* Avatar */}
+          <div className="relative shrink-0"
+            onClick={() => fileInputRef.current?.click()}
+            style={{ cursor: 'pointer' }}>
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden relative group"
+              style={{ border: '2px solid rgba(168,85,247,0.4)' }}>
               {profile.avatar ? (
-                <Image
-                  src={profile.avatar}
-                  alt="Avatar"
-                  width={80}
-                  height={80}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
+                <Image src={profile.avatar} alt="Avatar" width={80} height={80}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <div className="w-full h-full flex items-center justify-center font-black text-3xl"
+                <div className="w-full h-full flex items-center justify-center font-black text-2xl md:text-3xl"
                   style={{ background: 'rgba(168,85,247,0.3)', color: '#e9d5ff' }}>
                   {profile.displayName?.charAt(0).toUpperCase()}
                 </div>
               )}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                style={{ background: 'rgba(0,0,0,0.6)' }}>
-                <span className="text-white text-xs font-bold">
-                  {uploadingAvatar ? '...' : '📷'}
-                </span>
+              <div className="absolute inset-0 flex items-center justify-center"
+                style={{ background: 'rgba(0,0,0,0.55)', opacity: uploadingAvatar ? 1 : 0, transition: 'opacity 0.2s' }}>
+                <span className="text-white text-xs font-bold">{uploadingAvatar ? '...' : '📷'}</span>
               </div>
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs"
+              style={{ background: 'rgba(168,85,247,0.8)', border: '2px solid #0a0a0f' }}>
+              ✏️
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
           </div>
 
+          {/* Jméno + ELO */}
           <div className="flex-1 min-w-0">
             {editingName ? (
               <div className="flex gap-2 mb-1">
-                <input
-                  type="text"
-                  value={newName}
+                <input type="text" value={newName}
                   onChange={e => setNewName(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && saveName()}
-                  maxLength={20}
-                  autoFocus
-                  className="flex-1 px-3 py-1.5 rounded-xl text-base font-bold outline-none transition-all"
+                  maxLength={20} autoFocus
+                  className="flex-1 min-w-0 px-3 py-1.5 rounded-xl text-base font-bold outline-none"
                   style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.5)', color: 'white' }}
                 />
                 <button onClick={saveName}
-                  className="font-bold text-sm px-3 py-1.5 rounded-xl transition-all"
-                  style={{ background: 'rgba(168,85,247,0.25)', border: '1px solid rgba(168,85,247,0.5)', color: '#e9d5ff' }}>
-                  ✓
-                </button>
+                  className="font-bold text-sm px-3 py-1.5 rounded-xl shrink-0"
+                  style={{ background: 'rgba(168,85,247,0.25)', border: '1px solid rgba(168,85,247,0.5)', color: '#e9d5ff' }}>✓</button>
                 <button onClick={() => setEditingName(false)}
-                  className="text-sm px-3 py-1.5 rounded-xl transition-all"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }}>
-                  ✕
-                </button>
+                  className="text-sm px-3 py-1.5 rounded-xl shrink-0"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }}>✕</button>
               </div>
             ) : (
               <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-2xl font-black truncate" style={{ color: 'white' }}>
-                  {profile.displayName}
-                </h1>
-                <button
-                  onClick={() => { setNewName(profile.displayName); setEditingName(true) }}
-                  className="text-sm shrink-0 transition-opacity opacity-40 hover:opacity-80"
-                  style={{ color: 'rgba(255,255,255,0.7)' }}>
-                  ✏️
-                </button>
+                <h1 className="text-lg md:text-2xl font-black truncate" style={{ color: 'white' }}>{profile.displayName}</h1>
+                <button onClick={() => { setNewName(profile.displayName); setEditingName(true) }}
+                  className="text-sm shrink-0 opacity-40 hover:opacity-80 transition-opacity"
+                  style={{ color: 'rgba(255,255,255,0.7)' }}>✏️</button>
               </div>
             )}
-            <p style={{ fontSize: '0.875rem', color: '#818cf8' }}>ELO {profile.elo ?? 1200}</p>
-            <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)', marginTop: '0.2rem' }}>
-              Klikni na avatar pro změnu fotky
-            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(129,140,248,0.15)', border: '1px solid rgba(129,140,248,0.3)', color: '#818cf8' }}>
+                ⚡ {profile.elo ?? 1200} ELO
+              </span>
+              <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.25)' }}>klikni na foto pro změnu</span>
+            </div>
           </div>
 
+          {/* Kredity */}
           <div className="text-right shrink-0">
-            <p className="font-black text-3xl" style={{ color: '#c084fc' }}>
+            <p className="font-black text-2xl md:text-3xl" style={{ color: '#c084fc' }}>
               {(profile.credits ?? 1000).toLocaleString()}
             </p>
-            <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>kreditů</p>
+            <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>kreditů</p>
           </div>
         </div>
+
+        {/* Stat řádek */}
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { label: 'Zápasy', value: profile.stats?.matches ?? 0, color: '#c084fc' },
+            { label: 'Výhry', value: profile.stats?.wins ?? 0, color: '#4ade80' },
+            { label: 'Prohry', value: profile.stats?.losses ?? 0, color: '#f87171' },
+            { label: 'Úspěšnost', value: winRate(), color: '#fbbf24' },
+          ].map(stat => (
+            <div key={stat.label} className="text-center p-2 rounded-xl"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-lg md:text-2xl font-black" style={{ color: stat.color }}>{stat.value}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.65rem' }}>{stat.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 opacity-100 translate-y-0 transition-all duration-700">
-        {statCards.map(stat => (
-          <div key={stat.label} className="p-4 text-center"
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLDivElement
-              el.style.borderColor = 'rgba(168,85,247,0.25)'
-              el.style.transform = 'translateY(-2px)'
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLDivElement
-              el.style.borderColor = 'rgba(255,255,255,0.08)'
-              el.style.transform = 'translateY(0)'
-            }}
-            style={{ ...glass, transition: 'all 0.2s ease' }}
-          >
-            <p className="text-2xl font-black" style={{ color: stat.color }}>{stat.value}</p>
-            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>{stat.label}</p>
+      {/* ── VSAZENO ── */}
+      {stakedCredits > 0 && (
+        <div className="p-4 mb-4 flex items-center justify-between"
+          style={{ ...glass, background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)' }}>
+          <div>
+            <p className="font-bold text-sm" style={{ color: '#fbbf24' }}>🎯 Aktuálně vsazeno</p>
+            <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)', marginTop: '0.1rem' }}>Probíhající zápasy</p>
           </div>
-        ))}
-      </div>
-
-      <div className="p-4 mb-5 flex items-center justify-between opacity-100 translate-y-0 transition-all duration-700"
-        style={stakedCredits > 0 ? {
-          ...glass,
-          background: 'rgba(251,191,36,0.07)',
-          border: '1px solid rgba(251,191,36,0.2)',
-        } : glass}>
-        <div>
-          <p className="font-bold text-sm" style={{ color: stakedCredits > 0 ? '#fbbf24' : 'rgba(255,255,255,0.4)' }}>
-            🎯 Aktuálně vsazeno
-          </p>
-          <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.25)', marginTop: '0.15rem' }}>
-            {stakedCredits > 0 ? 'Probíhající zápasy' : 'Žádný aktivní zápas'}
-          </p>
+          <div className="text-right">
+            <p className="font-black text-2xl" style={{ color: '#fbbf24' }}>{stakedCredits}</p>
+            <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>kreditů</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="font-black text-2xl" style={{ color: stakedCredits > 0 ? '#fbbf24' : 'rgba(255,255,255,0.2)' }}>
-            {stakedCredits}
-          </p>
-          <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>kreditů</p>
-        </div>
-      </div>
+      )}
 
-      <div className="p-6 mb-5 opacity-100 translate-y-0 transition-all duration-700" style={glass}>
-        <h2 className="font-black text-base mb-5" style={{ color: 'white' }}>📋 Historie zápasů</h2>
+      {/* ── HISTORIE ZÁPASŮ ── */}
+      <div className="p-4 md:p-6 mb-4" style={glass}>
+        <h2 className="font-black text-sm md:text-base mb-4"
+          style={{ color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          📋 Historie zápasů
+        </h2>
         {matches.length === 0 ? (
           <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.875rem' }}>Zatím žádné dokončené zápasy.</p>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {matches.map(match => {
               const result = getMatchResult(match)
               const opponent = match.teamA?.includes(user!.uid)
@@ -377,35 +341,28 @@ export default function Profile() {
               const won = result?.won
 
               return (
-                <div key={match.id}
-                  className="flex items-center justify-between p-4 rounded-xl"
+                <div key={match.id} className="flex items-center justify-between p-3 rounded-xl gap-2"
                   style={won ? {
-                    background: 'rgba(74,222,128,0.07)',
-                    border: '1px solid rgba(74,222,128,0.2)',
+                    background: 'rgba(74,222,128,0.07)', border: '1px solid rgba(74,222,128,0.2)',
                   } : {
-                    background: 'rgba(239,68,68,0.06)',
-                    border: '1px solid rgba(239,68,68,0.18)',
+                    background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)',
                   }}>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full"
                         style={won ? {
-                          background: 'rgba(74,222,128,0.2)',
-                          border: '1px solid rgba(74,222,128,0.35)',
-                          color: '#4ade80',
+                          background: 'rgba(74,222,128,0.2)', border: '1px solid rgba(74,222,128,0.35)', color: '#4ade80',
                         } : {
-                          background: 'rgba(239,68,68,0.2)',
-                          border: '1px solid rgba(239,68,68,0.3)',
-                          color: '#f87171',
+                          background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171',
                         }}>
                         {won ? 'VÝHRA' : 'PROHRA'}
                       </span>
-                      <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>{match.sport}</span>
+                      <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{match.sport}</span>
                     </div>
-                    <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.7)' }}>vs {opponent}</p>
+                    <p className="text-sm truncate" style={{ color: 'rgba(255,255,255,0.6)' }}>vs {opponent}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-black text-lg" style={{ color: 'white' }}>
+                  <div className="text-right shrink-0">
+                    <p className="font-black text-base md:text-lg" style={{ color: 'white' }}>
                       {result?.scoreMe} : {result?.scoreOp}
                     </p>
                     <p className="text-xs font-bold" style={{ color: won ? '#4ade80' : '#f87171' }}>
@@ -419,16 +376,28 @@ export default function Profile() {
         )}
       </div>
 
-      <div className="p-6 opacity-100 translate-y-0 transition-all duration-700" style={glass}>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="font-black text-base" style={{ color: 'white' }}>🎯 Sázkové tikety</h2>
-          <div className="flex gap-3 text-xs">
-            <span style={{ fontWeight: 700, color: '#4ade80' }}>{betStats.won}W</span>
-            <span style={{ fontWeight: 700, color: '#f87171' }}>{betStats.lost}L</span>
-            {betStats.pending > 0 && (
-              <span style={{ fontWeight: 700, color: '#fbbf24' }}>{betStats.pending} čeká</span>
-            )}
-            <span style={{ fontWeight: 700, color: betStats.profit >= 0 ? '#4ade80' : '#f87171' }}>
+      {/* ── SÁZKOVÉ TIKETY ── */}
+      <div className="p-4 md:p-6" style={glass}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-black text-sm md:text-base"
+            style={{ color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            🎯 Tikety
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.25)', color: '#4ade80' }}>
+              {betStats.won}W
+            </span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171' }}>
+              {betStats.lost}L
+            </span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{
+                background: betStats.profit >= 0 ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.15)',
+                border: betStats.profit >= 0 ? '1px solid rgba(74,222,128,0.25)' : '1px solid rgba(239,68,68,0.25)',
+                color: betStats.profit >= 0 ? '#4ade80' : '#f87171',
+              }}>
               {betStats.profit >= 0 ? '+' : ''}{betStats.profit} kr
             </span>
           </div>
@@ -437,61 +406,54 @@ export default function Profile() {
         {myBets.length === 0 ? (
           <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.875rem' }}>Zatím žádné sázky.</p>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {myBets.map(bet => {
               const event = bettingEvents.find(e => e.id === bet.eventId)
-              const pickLabel = bet.pick === 'a' ? event?.teamA :
-                               bet.pick === 'b' ? event?.teamB : 'Remíza'
+              const pickLabel = bet.pick === 'a' ? event?.teamA : bet.pick === 'b' ? event?.teamB : 'Remíza'
               const potentialWin = Math.round(bet.amount * bet.odds)
               const isWon = bet.status === 'won'
               const isLost = bet.status === 'lost'
 
               return (
-                <div key={bet.id}
-                  className="flex items-center justify-between p-4 rounded-xl"
+                <div key={bet.id} className="p-3 rounded-xl"
                   style={isWon ? {
-                    background: 'rgba(74,222,128,0.07)',
-                    border: '1px solid rgba(74,222,128,0.2)',
+                    background: 'rgba(74,222,128,0.07)', border: '1px solid rgba(74,222,128,0.2)',
                   } : isLost ? {
-                    background: 'rgba(239,68,68,0.06)',
-                    border: '1px solid rgba(239,68,68,0.18)',
+                    background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)',
                   } : {
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.07)',
+                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
                   }}>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                        style={isWon ? {
-                          background: 'rgba(74,222,128,0.2)', border: '1px solid rgba(74,222,128,0.35)', color: '#4ade80',
-                        } : isLost ? {
-                          background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171',
-                        } : {
-                          background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24',
-                        }}>
-                        {isWon ? 'VÝHRA' : isLost ? 'PROHRA' : '⏳ Čeká'}
-                      </span>
-                      <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{event?.sport ?? '—'}</span>
-                    </div>
-                    <p className="font-bold text-sm" style={{ color: 'white' }}>
+                  {/* Řádek 1: zápas + status */}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="font-bold text-sm truncate" style={{ color: 'white', flex: 1, marginRight: '0.5rem' }}>
                       {event?.teamA ?? '?'} vs {event?.teamB ?? '?'}
                     </p>
-                    <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.15rem' }}>
-                      Tip: <span style={{ color: 'rgba(255,255,255,0.7)' }}>{pickLabel}</span>
-                      {' · '}kurz <span style={{ color: '#a855f7', fontWeight: 700 }}>{bet.odds}</span>
-                    </p>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
+                      style={isWon ? {
+                        background: 'rgba(74,222,128,0.2)', border: '1px solid rgba(74,222,128,0.35)', color: '#4ade80',
+                      } : isLost ? {
+                        background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171',
+                      } : {
+                        background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24',
+                      }}>
+                      {isWon ? 'VÝHRA' : isLost ? 'PROHRA' : '⏳'}
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold" style={{ color: 'white' }}>{bet.amount} kr</p>
-                    {isWon && (
-                      <p className="text-sm font-bold" style={{ color: '#4ade80' }}>+{potentialWin - bet.amount} kr zisk</p>
-                    )}
-                    {isLost && (
-                      <p className="text-sm font-bold" style={{ color: '#f87171' }}>-{bet.amount} kr</p>
-                    )}
-                    {bet.status === 'pending' && (
-                      <p style={{ fontSize: '0.7rem', color: '#fbbf24' }}>možná výhra: {potentialWin} kr</p>
-                    )}
+
+                  {/* Řádek 2: tip + vsazeno + výhra */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)' }}>
+                        Tip: <span style={{ color: 'rgba(255,255,255,0.7)' }}>{pickLabel}</span>
+                        {' · '}kurz <span style={{ color: '#a855f7', fontWeight: 700 }}>{bet.odds}</span>
+                      </p>
+                      <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)' }}>Vsazeno: {bet.amount} kr</p>
+                    </div>
+                    <div className="text-right">
+                      {isWon && <p className="text-sm font-bold" style={{ color: '#4ade80' }}>+{potentialWin - bet.amount} kr</p>}
+                      {isLost && <p className="text-sm font-bold" style={{ color: '#f87171' }}>−{bet.amount} kr</p>}
+                      {bet.status === 'pending' && <p style={{ fontSize: '0.7rem', color: '#fbbf24' }}>možná: {potentialWin} kr</p>}
+                    </div>
                   </div>
                 </div>
               )
