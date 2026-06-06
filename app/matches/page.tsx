@@ -48,7 +48,6 @@ export default function Matches() {
     })
   }, [])
 
-  // Oprava ESLint chyby — reset při změně formátu bez setState v effect
   const handleFormatChange = (f: string) => {
     if (f !== prevFormat.current) {
       prevFormat.current = f
@@ -116,8 +115,8 @@ export default function Matches() {
     border: '1px solid rgba(168,85,247,0.5)',
     color: '#e9d5ff',
     borderRadius: '0.75rem',
-    padding: '0.375rem 1rem',
-    fontSize: '0.875rem',
+    padding: '0.375rem 0.75rem',
+    fontSize: '0.8rem',
     fontWeight: 600,
     transition: 'all 0.2s',
   }
@@ -127,43 +126,43 @@ export default function Matches() {
     border: '1px solid rgba(255,255,255,0.08)',
     color: 'rgba(255,255,255,0.4)',
     borderRadius: '0.75rem',
-    padding: '0.375rem 1rem',
-    fontSize: '0.875rem',
+    padding: '0.375rem 0.75rem',
+    fontSize: '0.8rem',
     fontWeight: 500,
     transition: 'all 0.2s',
     cursor: 'pointer',
   }
 
   return (
-    <main className="min-h-screen p-6 max-w-4xl mx-auto">
+    <main className="min-h-screen p-4 md:p-6 max-w-4xl mx-auto">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6 md:mb-8">
         <div>
           <p style={{ color: 'rgba(168,85,247,0.7)', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
             Herní systém
           </p>
-          <h1 className="text-3xl font-black tracking-tight" style={{ color: 'white' }}>Zápasy</h1>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight" style={{ color: 'white' }}>Zápasy</h1>
         </div>
         <button onClick={() => setShowForm(!showForm)}
-          className="font-bold py-2.5 px-6 rounded-xl transition-all duration-200 text-sm"
+          className="font-bold py-2 px-4 md:py-2.5 md:px-6 rounded-xl transition-all duration-200 text-sm"
           style={{
             background: showForm ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #a855f7, #7c3aed)',
             border: showForm ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(168,85,247,0.5)',
             color: 'white',
             boxShadow: showForm ? 'none' : '0 0 20px rgba(168,85,247,0.3)',
           }}>
-          {showForm ? '✕ Zavřít' : '+ Nový zápas'}
+          {showForm ? '✕' : '+ Nový'}
         </button>
       </div>
 
       {/* Formulář */}
       {showForm && (
-        <div className="mb-6 p-6" style={glass}>
-          <h2 className="font-bold text-lg mb-6" style={{ color: 'white' }}>Vytvořit zápas</h2>
+        <div className="mb-6 p-4 md:p-6" style={glass}>
+          <h2 className="font-bold text-lg mb-5" style={{ color: 'white' }}>Vytvořit zápas</h2>
 
           {/* Sport */}
-          <div className="mb-5">
+          <div className="mb-4">
             <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Sport</p>
             <div className="flex gap-2 flex-wrap">
               {sports.map(s => (
@@ -175,7 +174,7 @@ export default function Matches() {
           </div>
 
           {/* Formát */}
-          <div className="mb-5">
+          <div className="mb-4">
             <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Formát</p>
             <div className="flex gap-2">
               {['1v1', '2v2', '3v3'].map(f => (
@@ -186,11 +185,13 @@ export default function Matches() {
             </div>
           </div>
 
-          {/* Týmy */}
-          <div className="grid grid-cols-2 gap-4 mb-5">
+          {/* Týmy — na mobilu pod sebou, na PC vedle sebe */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             {(['A', 'B'] as const).map(team => (
-              <div key={team}>
-                <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              <div key={team} className="p-3 rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <p className="text-xs font-semibold mb-2 uppercase tracking-wider"
+                  style={{ color: team === 'A' ? '#93c5fd' : '#fca5a5' }}>
                   Tým {team}
                   <span className="ml-1 normal-case" style={{ color: 'rgba(255,255,255,0.2)' }}>
                     ({(team === 'A' ? teamA : teamB).length}/{maxPerTeam})
@@ -212,9 +213,7 @@ export default function Matches() {
                           border: team === 'A' ? '1px solid rgba(59,130,246,0.5)' : '1px solid rgba(239,68,68,0.5)',
                           color: team === 'A' ? '#93c5fd' : '#fca5a5',
                         } : disabled ? {
-                          ...btnInactive,
-                          opacity: 0.3,
-                          cursor: 'not-allowed',
+                          ...btnInactive, opacity: 0.3, cursor: 'not-allowed',
                         } : btnInactive}>
                         {p.displayName}
                       </button>
@@ -226,7 +225,7 @@ export default function Matches() {
           </div>
 
           {/* Rozhodčí */}
-          <div className="mb-5">
+          <div className="mb-4">
             <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Rozhodčí</p>
             {availableReferees.length === 0 ? (
               <p className="text-xs" style={{ color: '#fbbf24' }}>Nejsou dostupní rozhodčí.</p>
@@ -247,17 +246,17 @@ export default function Matches() {
             )}
           </div>
 
-          {/* Góly a kredity */}
-          <div className="flex gap-6 mb-6">
+          {/* Góly a kredity — na mobilu vedle sebe */}
+          <div className="flex gap-4 mb-5">
             {[
               { label: 'Do kolika gólů', val: goals, set: setGoals },
-              { label: 'Kreditů na hráče', val: credits, set: setCredits },
+              { label: 'Kreditů/hráč', val: credits, set: setCredits },
             ].map(({ label, val, set }) => (
-              <div key={label}>
+              <div key={label} className="flex-1">
                 <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>{label}</p>
                 <input type="number" value={val}
                   onChange={e => set(Number(e.target.value))}
-                  className="w-24 text-center rounded-xl px-3 py-2 text-sm font-bold"
+                  className="w-full text-center rounded-xl px-3 py-2 text-sm font-bold"
                   style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
               </div>
             ))}
@@ -266,7 +265,7 @@ export default function Matches() {
           {/* Akce */}
           <div className="flex gap-3">
             <button onClick={createMatch}
-              className="font-bold py-2.5 px-6 rounded-xl text-sm transition-all"
+              className="flex-1 md:flex-none font-bold py-2.5 px-6 rounded-xl text-sm transition-all"
               style={{
                 background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
                 border: '1px solid rgba(168,85,247,0.5)',
@@ -276,7 +275,7 @@ export default function Matches() {
               Poslat pozvánky
             </button>
             <button onClick={() => setShowForm(false)}
-              className="font-medium py-2.5 px-6 rounded-xl text-sm transition-all"
+              className="font-medium py-2.5 px-4 rounded-xl text-sm transition-all"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}>
               Zrušit
             </button>
@@ -285,7 +284,7 @@ export default function Matches() {
       )}
 
       {/* Seznam zápasů */}
-      <div className="p-6" style={glass}>
+      <div className="p-4 md:p-6" style={glass}>
         <h2 className="font-bold text-base mb-5" style={{ color: 'rgba(255,255,255,0.6)' }}>Moje zápasy</h2>
         <MatchList userId={user?.uid ?? ''} players={players} />
       </div>

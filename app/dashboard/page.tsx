@@ -116,45 +116,35 @@ export default function Dashboard() {
   ]
 
   return (
-    <main className="min-h-screen p-6 max-w-6xl mx-auto" style={{ background: 'transparent' }}>
+    <main className="min-h-screen p-4 md:p-6 max-w-6xl mx-auto" style={{ background: 'transparent' }}>
 
       <div className="fixed pointer-events-none"
-        style={{
-          top: '10%', left: '5%', width: '400px', height: '400px',
-          background: 'radial-gradient(circle, rgba(168,85,247,0.08) 0%, transparent 70%)',
-          filter: 'blur(40px)', borderRadius: '50%',
-        }} />
+        style={{ top: '10%', left: '5%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(168,85,247,0.08) 0%, transparent 70%)', filter: 'blur(40px)', borderRadius: '50%' }} />
       <div className="fixed pointer-events-none"
-        style={{
-          bottom: '20%', right: '10%', width: '300px', height: '300px',
-          background: 'radial-gradient(circle, rgba(124,58,237,0.06) 0%, transparent 70%)',
-          filter: 'blur(30px)', borderRadius: '50%',
-        }} />
+        style={{ bottom: '20%', right: '10%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(124,58,237,0.06) 0%, transparent 70%)', filter: 'blur(30px)', borderRadius: '50%' }} />
 
-      <div className="mb-8 opacity-100 translate-y-0 transition-all duration-700">
-        <p style={{ color: 'rgba(168,85,247,0.7)', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+      {/* Header */}
+      <div className="mb-6 md:mb-8">
+        <p style={{ color: 'rgba(168,85,247,0.7)', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
           Vítej zpět
         </p>
-        <h1 className="text-4xl font-black tracking-tight" style={{ color: 'white' }}>
+        <h1 className="text-3xl md:text-4xl font-black tracking-tight" style={{ color: 'white' }}>
           {profile.displayName}
           <span style={{ marginLeft: '0.5rem' }}>👋</span>
         </h1>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 opacity-100 translate-y-0 transition-all duration-700">
+      {/* Stat karty — 2 sloupce na mobilu, 4 na PC */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
         {stats.map((stat, i) => (
           <div key={stat.label}
-            className="relative overflow-hidden p-5 group cursor-default"
-            style={{
-              ...glassCard,
-              transition: 'all 0.3s ease',
-              animationDelay: `${i * 100}ms`,
-            }}
+            className="relative overflow-hidden p-4 md:p-5 group cursor-default"
+            style={{ ...glassCard, transition: 'all 0.3s ease', animationDelay: `${i * 100}ms` }}
             onMouseEnter={e => {
               const el = e.currentTarget as HTMLDivElement
               el.style.transform = 'translateY(-2px)'
-              el.style.borderColor = `rgba(168,85,247,0.3)`
-              el.style.boxShadow = `0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(168,85,247,0.15)`
+              el.style.borderColor = 'rgba(168,85,247,0.3)'
+              el.style.boxShadow = '0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(168,85,247,0.15)'
             }}
             onMouseLeave={e => {
               const el = e.currentTarget as HTMLDivElement
@@ -165,26 +155,21 @@ export default function Dashboard() {
           >
             <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full opacity-20"
               style={{ background: stat.glow, filter: 'blur(12px)' }} />
-            <div className="text-2xl mb-3">{stat.icon}</div>
-            <p className="text-3xl font-black mb-1" style={{ color: 'white' }}>
+            <div className="text-xl md:text-2xl mb-2 md:mb-3">{stat.icon}</div>
+            <p className="text-2xl md:text-3xl font-black mb-1" style={{ color: 'white' }}>
               {stat.value.toLocaleString()}
             </p>
-            <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              {stat.label}
-            </p>
+            <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>{stat.label}</p>
             <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
               style={{ background: `linear-gradient(90deg, transparent, ${stat.color}, transparent)` }} />
           </div>
         ))}
       </div>
 
+      {/* Čekající pozvánky */}
       {pendingMatches.length > 0 && (
-        <div className="mb-6 p-6 opacity-100 translate-y-0 transition-all duration-700"
-          style={{
-            ...glassCard,
-            border: '1px solid rgba(251,191,36,0.2)',
-            background: 'rgba(251,191,36,0.04)',
-          }}>
+        <div className="mb-6 p-4 md:p-6"
+          style={{ ...glassCard, border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.04)' }}>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#fbbf24' }} />
             <h2 className="font-bold text-base" style={{ color: '#fbbf24' }}>Čekající pozvánky</h2>
@@ -195,61 +180,51 @@ export default function Dashboard() {
           </div>
           <div className="flex flex-col gap-3">
             {pendingMatches.map(match => (
-              <div key={match.id} className="flex items-center justify-between p-4 rounded-xl"
+              <div key={match.id} className="p-3 md:p-4 rounded-xl"
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                      style={{ background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.2)' }}>
-                      {match.sport}
-                    </span>
-                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{match.format}</span>
-                    {match.referee === user?.uid && (
-                      <span className="text-xs" style={{ color: '#fbbf24' }}>⚖️ Jsi rozhodčí</span>
-                    )}
+                {/* Mobil: svisle, PC: vedle sebe */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                        style={{ background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.2)' }}>
+                        {match.sport}
+                      </span>
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{match.format}</span>
+                      {match.referee === user?.uid && (
+                        <span className="text-xs" style={{ color: '#fbbf24' }}>⚖️ Jsi rozhodčí</span>
+                      )}
+                    </div>
+                    {/* Týmy na mobilu pod sebou */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold" style={{ color: '#93c5fd' }}>
+                        {match.teamA.map(getName).join(' + ')}
+                      </span>
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>vs</span>
+                      <span className="text-sm font-semibold" style={{ color: '#fca5a5' }}>
+                        {match.teamB.map(getName).join(' + ')}
+                      </span>
+                    </div>
+                    <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      Do {match.goals} gólů · {match.credits} kr/hráč
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold" style={{ color: '#93c5fd' }}>
-                      {match.teamA.map(getName).join(' + ')}
-                    </span>
-                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>vs</span>
-                    <span className="text-sm font-semibold" style={{ color: '#fca5a5' }}>
-                      {match.teamB.map(getName).join(' + ')}
-                    </span>
-                  </div>
-                  <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                    Do {match.goals} gólů · {match.credits} kr/hráč
-                  </p>
+                  <Link href="/matches"
+                    className="text-sm font-bold px-4 py-2 rounded-xl transition-all duration-200 text-center"
+                    style={{ background: 'rgba(168,85,247,0.2)', border: '1px solid rgba(168,85,247,0.4)', color: '#e9d5ff' }}>
+                    Přijmout →
+                  </Link>
                 </div>
-                <Link href="/matches"
-                  className="text-sm font-bold px-4 py-2 rounded-xl transition-all duration-200"
-                  style={{ background: 'rgba(168,85,247,0.2)', border: '1px solid rgba(168,85,247,0.4)', color: '#e9d5ff' }}
-                  onMouseEnter={e => {
-                    const el = e.currentTarget as HTMLAnchorElement
-                    el.style.background = 'rgba(168,85,247,0.35)'
-                    el.style.boxShadow = '0 0 16px rgba(168,85,247,0.3)'
-                  }}
-                  onMouseLeave={e => {
-                    const el = e.currentTarget as HTMLAnchorElement
-                    el.style.background = 'rgba(168,85,247,0.2)'
-                    el.style.boxShadow = 'none'
-                  }}
-                >
-                  Přijmout →
-                </Link>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* Live zápasy */}
       {liveMatches.length > 0 && (
-        <div className="mb-6 p-6 opacity-100 translate-y-0 transition-all duration-700"
-          style={{
-            ...glassCard,
-            border: '1px solid rgba(74,222,128,0.2)',
-            background: 'rgba(74,222,128,0.03)',
-          }}>
+        <div className="mb-6 p-4 md:p-6"
+          style={{ ...glassCard, border: '1px solid rgba(74,222,128,0.2)', background: 'rgba(74,222,128,0.03)' }}>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#4ade80' }} />
             <h2 className="font-bold text-base" style={{ color: '#4ade80' }}>Právě se hraje</h2>
@@ -260,7 +235,7 @@ export default function Dashboard() {
           </div>
           <div className="flex flex-col gap-3">
             {liveMatches.map(match => (
-              <div key={match.id} className="p-4 rounded-xl"
+              <div key={match.id} className="p-3 md:p-4 rounded-xl"
                 style={{ background: 'rgba(74,222,128,0.04)', border: '1px solid rgba(74,222,128,0.12)' }}>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full"
@@ -269,11 +244,13 @@ export default function Dashboard() {
                   </span>
                   <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{match.format}</span>
                 </div>
-                <div className="flex items-center justify-between">
+
+                {/* Live skóre — na mobilu svisle */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <span className="font-bold text-sm" style={{ color: '#93c5fd' }}>
                     {match.teamA.map(getName).join(' + ')}
                   </span>
-                  <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl"
+                  <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl self-start md:self-auto"
                     style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
                     <span className="text-2xl font-black" style={{ color: 'white' }}>{match.liveScoreA ?? 0}</span>
                     <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '1.2rem' }}>:</span>
@@ -283,7 +260,8 @@ export default function Dashboard() {
                     {match.teamB.map(getName).join(' + ')}
                   </span>
                 </div>
-                <p className="text-xs mt-3 text-center" style={{ color: 'rgba(255,255,255,0.25)' }}>
+
+                <p className="text-xs mt-3" style={{ color: 'rgba(255,255,255,0.25)' }}>
                   Do {match.goals} gólů · {match.credits} kr/hráč · ⚖️ {getName(match.referee ?? '')}
                 </p>
               </div>
@@ -292,14 +270,13 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="p-6 opacity-100 translate-y-0 transition-all duration-700" style={glassCard}>
-        <h2 className="font-bold text-base mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>
-          Rychlý přístup
-        </h2>
+      {/* Rychlý přístup */}
+      <div className="p-4 md:p-6" style={glassCard}>
+        <h2 className="font-bold text-base mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>Rychlý přístup</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {quickLinks.map((link) => (
             <Link key={link.href} href={link.href}
-              className="p-4 rounded-xl text-center transition-all duration-200"
+              className="p-3 md:p-4 rounded-xl text-center transition-all duration-200"
               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLAnchorElement
@@ -316,9 +293,9 @@ export default function Dashboard() {
                 el.style.boxShadow = 'none'
               }}
             >
-              <p className="text-3xl mb-2">{link.emoji}</p>
+              <p className="text-2xl md:text-3xl mb-1 md:mb-2">{link.emoji}</p>
               <p className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.85)' }}>{link.label}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>{link.desc}</p>
+              <p className="text-xs mt-0.5 hidden md:block" style={{ color: 'rgba(255,255,255,0.3)' }}>{link.desc}</p>
             </Link>
           ))}
         </div>
