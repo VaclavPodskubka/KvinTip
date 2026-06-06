@@ -49,7 +49,6 @@ export default function Chat() {
   const [groupMessages, setGroupMessages] = useState<Record<string, Message[]>>({})
   const [text, setText] = useState('')
   const [showNewGroup, setShowNewGroup] = useState(false)
-  const [showSidebar, setShowSidebar] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [inviteMembers, setInviteMembers] = useState<string[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -159,7 +158,18 @@ export default function Chat() {
     return new Date(ts.seconds * 1000).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })
   }
 
-  const activeTitle = activeTab === 'global' ? '🌍 Globální chat' : activeGroup?.name ?? ''
+  const activeTitle = activeTab === 'global' ? '🌍 Globální' : activeGroup?.name ?? ''
+
+  // All tabs for mobile bottom bar: global + groups
+  const allTabs = [
+    { id: 'global', label: 'Globální', icon: '🌍' },
+    ...groups.map(g => ({
+      id: g.id,
+      label: g.name,
+      icon: g.name.charAt(0).toUpperCase(),
+      pending: g.pendingMembers?.includes(user?.uid ?? ''),
+    })),
+  ]
 
   if (loading) return (
     <main className="flex min-h-screen items-center justify-center" style={{ background: '#0a0a0f' }}>
@@ -174,31 +184,15 @@ export default function Chat() {
   return (
     <main className="flex" style={{ height: 'calc(100vh - 57px)', background: 'transparent', position: 'relative' }}>
 
-      {/* ── MOBILNÍ OVERLAY pro sidebar ── */}
-      {showSidebar && (
-        <div
-          className="fixed inset-0 z-30 md:hidden"
-          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setShowSidebar(false)}
-        />
-      )}
-
-      {/* ── SIDEBAR ── */}
+      {/* ── DESKTOP SIDEBAR (skrytý na mobilu) ── */}
       <div
-        className="flex flex-col shrink-0 z-40"
+        className="hidden md:flex flex-col shrink-0"
         style={{
           width: '17rem',
           background: 'rgba(10,10,18,0.97)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           borderRight: '1px solid rgba(255,255,255,0.07)',
-          // Na mobilu: fixed drawer, na PC: normální
-          position: typeof window !== 'undefined' && window.innerWidth < 768 ? 'fixed' : 'relative',
-          top: 0,
-          left: 0,
-          bottom: 0,
-          transform: showSidebar ? 'translateX(0)' : undefined,
-          transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
         }}
       >
         <div className="flex items-center justify-between px-4 py-4"
@@ -215,7 +209,7 @@ export default function Chat() {
         </div>
 
         <div className="flex-1 overflow-y-auto py-2">
-          <button onClick={() => { setActiveTab('global'); setShowSidebar(false) }}
+          <button onClick={() => setActiveTab('global')}
             className="w-full text-left px-3 py-2.5 flex items-center gap-3 mx-1 rounded-xl transition-all duration-200"
             style={{
               width: 'calc(100% - 8px)',
@@ -241,7 +235,7 @@ export default function Chat() {
             const isActive = activeTab === group.id
             return (
               <button key={group.id}
-                onClick={() => { setActiveTab(group.id); setShowSidebar(false) }}
+                onClick={() => setActiveTab(group.id)}
                 className="text-left px-3 py-2.5 flex items-center gap-3 mx-1 rounded-xl transition-all duration-200"
                 style={{
                   width: 'calc(100% - 8px)',
@@ -264,28 +258,19 @@ export default function Chat() {
       </div>
 
       {/* ── HLAVNÍ OBLAST ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0" style={{ minHeight: 0 }}>
 
-        {/* Chat header — mobilní hamburger vlevo */}
+        {/* Chat header */}
         <div className="px-3 md:px-6 py-3 flex items-center gap-3"
           style={{
             background: 'rgba(255,255,255,0.03)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             borderBottom: '1px solid rgba(255,255,255,0.07)',
+            flexShrink: 0,
           }}>
 
-          {/* Hamburger — jen mobil */}
-          <button
-            className="md:hidden flex flex-col gap-1 p-2 rounded-xl shrink-0"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
-            onClick={() => setShowSidebar(true)}
-          >
-            <span className="block w-4 h-0.5" style={{ background: 'rgba(255,255,255,0.7)' }} />
-            <span className="block w-4 h-0.5" style={{ background: 'rgba(255,255,255,0.7)' }} />
-            <span className="block w-4 h-0.5" style={{ background: 'rgba(255,255,255,0.7)' }} />
-          </button>
-
+          {/* Mobilní + Skupina button vpravo nahoře */}
           <div className="flex-1 min-w-0">
             <p className="font-black text-sm md:text-base truncate" style={{ color: 'white' }}>{activeTitle}</p>
             {activeTab === 'global' ? (
@@ -296,12 +281,21 @@ export default function Chat() {
               </p>
             ) : null}
           </div>
+
+          {/* + Skupina button — jen mobil */}
+          <button
+            className="md:hidden text-xs font-bold px-3 py-1.5 rounded-xl shrink-0"
+            style={{ background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', color: '#e9d5ff' }}
+            onClick={() => setShowNewGroup(true)}
+          >
+            + Skupina
+          </button>
         </div>
 
         {/* Pozvánka banner */}
         {isPending && (
           <div className="px-4 py-3 flex items-center justify-between gap-3"
-            style={{ background: 'rgba(251,191,36,0.07)', borderBottom: '1px solid rgba(251,191,36,0.15)' }}>
+            style={{ background: 'rgba(251,191,36,0.07)', borderBottom: '1px solid rgba(251,191,36,0.15)', flexShrink: 0 }}>
             <p style={{ fontSize: '0.8rem', color: '#fbbf24' }}>
               Pozvánka: <span className="font-bold">{activeGroup?.name}</span>
             </p>
@@ -313,14 +307,17 @@ export default function Chat() {
           </div>
         )}
 
-        {/* Zprávy */}
-        <div className="flex-1 overflow-y-auto p-3 md:p-4 flex flex-col gap-1.5">
+        {/* Zprávy — na mobilu spodní padding kvůli tab baru */}
+        <div
+          className="flex-1 overflow-y-auto p-3 md:p-4 flex flex-col gap-1.5"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        >
           {isPending ? (
-            <div className="flex-1 flex items-center justify-center h-full">
+            <div className="flex flex-1 items-center justify-center h-full">
               <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.875rem' }}>Přijmi pozvánku pro zobrazení zpráv.</p>
             </div>
           ) : activeMessages.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center h-full">
+            <div className="flex flex-1 items-center justify-center h-full">
               <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.875rem' }}>Zatím žádné zprávy. Napiš první! 💬</p>
             </div>
           ) : (
@@ -380,6 +377,7 @@ export default function Chat() {
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
               borderTop: '1px solid rgba(255,255,255,0.07)',
+              flexShrink: 0,
             }}>
             <div className="flex gap-2">
               <input type="text" value={text}
@@ -403,6 +401,60 @@ export default function Chat() {
                 ↑
               </button>
             </div>
+          </div>
+        )}
+
+        {/* ── MOBILNÍ TAB BAR pro skupiny (jen mobil, pod inputem) ── */}
+        {allTabs.length > 1 && (
+          <div
+            className="md:hidden flex overflow-x-auto gap-2 px-3 py-2"
+            style={{
+              background: 'rgba(10,10,18,0.95)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              borderTop: '1px solid rgba(255,255,255,0.07)',
+              flexShrink: 0,
+              scrollbarWidth: 'none',
+            }}
+          >
+            {allTabs.map(tab => {
+              const isActive = activeTab === tab.id
+              const hasPending = 'pending' in tab && tab.pending
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className="flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-xl transition-all duration-200 relative"
+                  style={{
+                    background: isActive ? 'rgba(168,85,247,0.2)' : 'rgba(255,255,255,0.04)',
+                    border: isActive ? '1px solid rgba(168,85,247,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                  }}
+                >
+                  {/* Pending dot */}
+                  {hasPending && (
+                    <span
+                      className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-pulse"
+                      style={{ background: '#fbbf24' }}
+                    />
+                  )}
+                  <span style={{ fontSize: tab.id === 'global' ? '0.9rem' : '0.75rem', lineHeight: 1 }}>
+                    {tab.icon}
+                  </span>
+                  <span
+                    className="text-xs font-bold"
+                    style={{
+                      color: isActive ? '#e9d5ff' : 'rgba(255,255,255,0.4)',
+                      maxWidth: '6rem',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {tab.label}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>

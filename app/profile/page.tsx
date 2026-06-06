@@ -218,13 +218,14 @@ export default function Profile() {
       {/* ── PROFIL KARTA ── */}
       <div className="p-4 md:p-6 mb-4" style={glass}>
 
-        {/* Avatar + jméno + kredity */}
-        <div className="flex items-center gap-4 mb-4">
+        {/* Horní část: Avatar vlevo + kredity vpravo */}
+        <div className="flex items-start justify-between gap-3 mb-4">
+
           {/* Avatar */}
           <div className="relative shrink-0"
             onClick={() => fileInputRef.current?.click()}
             style={{ cursor: 'pointer' }}>
-            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden relative group"
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden relative"
               style={{ border: '2px solid rgba(168,85,247,0.4)' }}>
               {profile.avatar ? (
                 <Image src={profile.avatar} alt="Avatar" width={80} height={80}
@@ -247,47 +248,52 @@ export default function Profile() {
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
           </div>
 
-          {/* Jméno + ELO */}
-          <div className="flex-1 min-w-0">
-            {editingName ? (
-              <div className="flex gap-2 mb-1">
-                <input type="text" value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && saveName()}
-                  maxLength={20} autoFocus
-                  className="flex-1 min-w-0 px-3 py-1.5 rounded-xl text-base font-bold outline-none"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.5)', color: 'white' }}
-                />
-                <button onClick={saveName}
-                  className="font-bold text-sm px-3 py-1.5 rounded-xl shrink-0"
-                  style={{ background: 'rgba(168,85,247,0.25)', border: '1px solid rgba(168,85,247,0.5)', color: '#e9d5ff' }}>✓</button>
-                <button onClick={() => setEditingName(false)}
-                  className="text-sm px-3 py-1.5 rounded-xl shrink-0"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }}>✕</button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-lg md:text-2xl font-black truncate" style={{ color: 'white' }}>{profile.displayName}</h1>
-                <button onClick={() => { setNewName(profile.displayName); setEditingName(true) }}
-                  className="text-sm shrink-0 opacity-40 hover:opacity-80 transition-opacity"
-                  style={{ color: 'rgba(255,255,255,0.7)' }}>✏️</button>
-              </div>
-            )}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                style={{ background: 'rgba(129,140,248,0.15)', border: '1px solid rgba(129,140,248,0.3)', color: '#818cf8' }}>
-                ⚡ {profile.elo ?? 1200} ELO
-              </span>
-              <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.25)' }}>klikni na foto pro změnu</span>
-            </div>
-          </div>
-
-          {/* Kredity */}
+          {/* Kredity vpravo nahoře */}
           <div className="text-right shrink-0">
             <p className="font-black text-2xl md:text-3xl" style={{ color: '#c084fc' }}>
               {(profile.credits ?? 1000).toLocaleString()}
             </p>
             <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>kreditů</p>
+          </div>
+        </div>
+
+        {/* Jméno — celé, bez truncate, pod avatarem */}
+        <div className="mb-3">
+          {editingName ? (
+            <div className="flex gap-2 mb-2">
+              <input type="text" value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveName()}
+                maxLength={20} autoFocus
+                className="flex-1 min-w-0 px-3 py-1.5 rounded-xl text-base font-bold outline-none"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(168,85,247,0.5)', color: 'white' }}
+              />
+              <button onClick={saveName}
+                className="font-bold text-sm px-3 py-1.5 rounded-xl shrink-0"
+                style={{ background: 'rgba(168,85,247,0.25)', border: '1px solid rgba(168,85,247,0.5)', color: '#e9d5ff' }}>✓</button>
+              <button onClick={() => setEditingName(false)}
+                className="text-sm px-3 py-1.5 rounded-xl shrink-0"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }}>✕</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              {/* Jméno bez truncate — zobrazí se celé */}
+              <h1 className="text-xl md:text-2xl font-black" style={{ color: 'white', wordBreak: 'break-word' }}>
+                {profile.displayName}
+              </h1>
+              <button onClick={() => { setNewName(profile.displayName); setEditingName(true) }}
+                className="text-sm opacity-40 hover:opacity-80 transition-opacity shrink-0"
+                style={{ color: 'rgba(255,255,255,0.7)' }}>✏️</button>
+            </div>
+          )}
+
+          {/* ELO badge + hint */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(129,140,248,0.15)', border: '1px solid rgba(129,140,248,0.3)', color: '#818cf8' }}>
+              ⚡ {profile.elo ?? 1200} ELO
+            </span>
+            <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.2)' }}>klikni na foto pro změnu</span>
           </div>
         </div>
 
@@ -302,7 +308,7 @@ export default function Profile() {
             <div key={stat.label} className="text-center p-2 rounded-xl"
               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <p className="text-lg md:text-2xl font-black" style={{ color: stat.color }}>{stat.value}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.65rem' }}>{stat.label}</p>
+              <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.6rem', marginTop: '0.15rem' }}>{stat.label}</p>
             </div>
           ))}
         </div>
@@ -359,7 +365,7 @@ export default function Profile() {
                       </span>
                       <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{match.sport}</span>
                     </div>
-                    <p className="text-sm truncate" style={{ color: 'rgba(255,255,255,0.6)' }}>vs {opponent}</p>
+                    <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)', wordBreak: 'break-word' }}>vs {opponent}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="font-black text-base md:text-lg" style={{ color: 'white' }}>
@@ -424,8 +430,8 @@ export default function Profile() {
                     background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
                   }}>
                   {/* Řádek 1: zápas + status */}
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="font-bold text-sm truncate" style={{ color: 'white', flex: 1, marginRight: '0.5rem' }}>
+                  <div className="flex items-start justify-between mb-1.5 gap-2">
+                    <p className="font-bold text-sm" style={{ color: 'white', flex: 1, wordBreak: 'break-word' }}>
                       {event?.teamA ?? '?'} vs {event?.teamB ?? '?'}
                     </p>
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
