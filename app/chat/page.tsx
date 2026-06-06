@@ -52,6 +52,7 @@ export default function Chat() {
   const [groupName, setGroupName] = useState('')
   const [inviteMembers, setInviteMembers] = useState<string[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!loading && !user) router.push('/login')
@@ -111,22 +112,25 @@ export default function Chat() {
   const sendMessage = async () => {
     if (!text.trim() || !user) return
     const profile = players.find(p => p.uid === user.uid)
+    const msgText = text.trim()
+    setText('')
     if (activeTab === 'global') {
       await addDoc(collection(db, 'globalChat'), {
-        text: text.trim(), userId: user.uid,
+        text: msgText, userId: user.uid,
         userName: profile?.displayName ?? 'Neznámý',
         userAvatar: profile?.avatar ?? null,
         createdAt: serverTimestamp(),
       })
     } else {
       await addDoc(collection(db, 'chatGroups', activeTab, 'messages'), {
-        text: text.trim(), userId: user.uid,
+        text: msgText, userId: user.uid,
         userName: profile?.displayName ?? 'Neznámý',
         userAvatar: profile?.avatar ?? null,
         createdAt: serverTimestamp(),
       })
     }
-    setText('')
+    // Keep focus on input after send — prevents scroll jump
+    inputRef.current?.focus()
   }
 
   const createGroup = async () => {
@@ -160,7 +164,6 @@ export default function Chat() {
 
   const activeTitle = activeTab === 'global' ? '🌍 Globální' : activeGroup?.name ?? ''
 
-  // All tabs for mobile bottom bar: global + groups
   const allTabs = [
     { id: 'global', label: 'Globální', icon: '🌍' },
     ...groups.map(g => ({
@@ -182,9 +185,17 @@ export default function Chat() {
   )
 
   return (
-    <main className="flex" style={{ height: 'calc(100vh - 57px)', background: 'transparent', position: 'relative' }}>
-
-      {/* ── DESKTOP SIDEBAR (skrytý na mobilu) ── */}
+    // touch-none na wrapper zabrání posunu stránky při psaní na iOS
+    <main
+      className="flex"
+      style={{
+        height: 'calc(100vh - 57px)',
+        background: 'transparent',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* ── DESKTOP SIDEBAR ── */}
       <div
         className="hidden md:flex flex-col shrink-0"
         style={{
@@ -207,7 +218,6 @@ export default function Chat() {
             + Skupina
           </button>
         </div>
-
         <div className="flex-1 overflow-y-auto py-2">
           <button onClick={() => setActiveTab('global')}
             className="w-full text-left px-3 py-2.5 flex items-center gap-3 mx-1 rounded-xl transition-all duration-200"
@@ -223,13 +233,11 @@ export default function Chat() {
               <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>Všichni hráči</p>
             </div>
           </button>
-
           {groups.length > 0 && (
             <div className="px-4 pt-4 pb-1">
               <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Skupiny</p>
             </div>
           )}
-
           {groups.map(group => {
             const pending = group.pendingMembers?.includes(user?.uid ?? '')
             const isActive = activeTab === group.id
@@ -258,33 +266,36 @@ export default function Chat() {
       </div>
 
       {/* ── HLAVNÍ OBLAST ── */}
-      <div className="flex-1 flex flex-col min-w-0" style={{ minHeight: 0 }}>
-
-        {/* Chat header */}
-        <div className="px-3 md:px-6 py-3 flex items-center gap-3"
+      <div
+        className="flex-1 flex flex-col min-w-0"
+        style={{ minHeight: 0, overflow: 'hidden' }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-3"
           style={{
-            background: 'rgba(255,255,255,0.03)',
+            background: 'rgba(10,10,18,0.9)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             borderBottom: '1px solid rgba(255,255,255,0.07)',
             flexShrink: 0,
-          }}>
-
-          {/* Mobilní + Skupina button vpravo nahoře */}
-          <div className="flex-1 min-w-0">
-            <p className="font-black text-sm md:text-base truncate" style={{ color: 'white' }}>{activeTitle}</p>
+            minHeight: '52px',
+          }}
+        >
+          <div className="min-w-0">
+            <p className="font-black text-sm md:text-base" style={{ color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {activeTitle}
+            </p>
             {activeTab === 'global' ? (
-              <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{players.length} hráčů</p>
+              <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', marginTop: '1px' }}>{players.length} hráčů online</p>
             ) : activeGroup ? (
-              <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }} className="truncate">
+              <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {activeGroup.members.map(getName).join(', ')}
               </p>
             ) : null}
           </div>
-
-          {/* + Skupina button — jen mobil */}
           <button
-            className="md:hidden text-xs font-bold px-3 py-1.5 rounded-xl shrink-0"
+            className="md:hidden text-xs font-bold px-3 py-1.5 rounded-xl shrink-0 ml-3"
             style={{ background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', color: '#e9d5ff' }}
             onClick={() => setShowNewGroup(true)}
           >
@@ -294,73 +305,116 @@ export default function Chat() {
 
         {/* Pozvánka banner */}
         {isPending && (
-          <div className="px-4 py-3 flex items-center justify-between gap-3"
-            style={{ background: 'rgba(251,191,36,0.07)', borderBottom: '1px solid rgba(251,191,36,0.15)', flexShrink: 0 }}>
+          <div
+            className="flex items-center justify-between gap-3 px-4 py-3"
+            style={{ background: 'rgba(251,191,36,0.07)', borderBottom: '1px solid rgba(251,191,36,0.15)', flexShrink: 0 }}
+          >
             <p style={{ fontSize: '0.8rem', color: '#fbbf24' }}>
               Pozvánka: <span className="font-bold">{activeGroup?.name}</span>
             </p>
-            <button onClick={() => acceptGroupInvite(activeTab)}
-              className="text-xs font-bold px-3 py-1.5 rounded-xl shrink-0 transition-all"
-              style={{ background: 'rgba(168,85,247,0.2)', border: '1px solid rgba(168,85,247,0.4)', color: '#e9d5ff' }}>
+            <button
+              onClick={() => acceptGroupInvite(activeTab)}
+              className="text-xs font-bold px-3 py-1.5 rounded-xl shrink-0"
+              style={{ background: 'rgba(168,85,247,0.2)', border: '1px solid rgba(168,85,247,0.4)', color: '#e9d5ff' }}
+            >
               Připojit se
             </button>
           </div>
         )}
 
-        {/* Zprávy — na mobilu spodní padding kvůli tab baru */}
+        {/* Zprávy */}
         <div
-          className="flex-1 overflow-y-auto p-3 md:p-4 flex flex-col gap-1.5"
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+          className="flex-1 overflow-y-auto"
+          style={{
+            padding: '16px 12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            overscrollBehavior: 'contain',
+          }}
         >
           {isPending ? (
-            <div className="flex flex-1 items-center justify-center h-full">
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.875rem' }}>Přijmi pozvánku pro zobrazení zpráv.</p>
             </div>
           ) : activeMessages.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center h-full">
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.875rem' }}>Zatím žádné zprávy. Napiš první! 💬</p>
             </div>
           ) : (
             activeMessages.map((msg, i) => {
               const isMe = msg.userId === user?.uid
               const prevMsg = activeMessages[i - 1]
+              const nextMsg = activeMessages[i + 1]
               const showName = !prevMsg || prevMsg.userId !== msg.userId
+              const isLastInGroup = !nextMsg || nextMsg.userId !== msg.userId
+              // Extra gap between different senders
+              const topMargin = showName && i > 0 ? '10px' : '0'
 
               return (
-                <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
-                  <div className="w-7 h-7 md:w-8 md:h-8 shrink-0">
+                <div
+                  key={msg.id}
+                  className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : ''}`}
+                  style={{ marginTop: topMargin }}
+                >
+                  {/* Avatar placeholder — always same width for alignment */}
+                  <div style={{ width: '30px', flexShrink: 0 }}>
                     {showName && (
                       msg.userAvatar ? (
-                        <Image src={msg.userAvatar} alt="" width={32} height={32}
-                          className="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover"
-                          style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
+                        <Image
+                          src={msg.userAvatar} alt="" width={30} height={30}
+                          style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
+                        />
                       ) : (
-                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                          style={{ background: isMe ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.08)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{
+                          width: '30px', height: '30px', borderRadius: '50%',
+                          background: isMe ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.08)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '0.7rem', fontWeight: 700, color: 'white',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                        }}>
                           {msg.userName?.charAt(0).toUpperCase()}
                         </div>
                       )
                     )}
                   </div>
 
-                  <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
-                    style={{ maxWidth: 'min(75vw, 28rem)' }}>
+                  <div
+                    style={{
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: isMe ? 'flex-end' : 'flex-start',
+                      maxWidth: 'min(72vw, 26rem)',
+                    }}
+                  >
                     {showName && !isMe && (
-                      <p className="text-xs mb-1 ml-1" style={{ color: 'rgba(168,85,247,0.7)', fontWeight: 600 }}>{msg.userName}</p>
+                      <p style={{ fontSize: '0.7rem', color: 'rgba(168,85,247,0.8)', fontWeight: 600, marginBottom: '3px', marginLeft: '4px' }}>
+                        {msg.userName}
+                      </p>
                     )}
-                    <div className="px-3 py-2 rounded-2xl md:px-4 md:py-2.5"
+                    <div
                       style={isMe ? {
-                        background: 'rgba(168,85,247,0.3)',
-                        border: '1px solid rgba(168,85,247,0.4)',
-                        borderBottomRightRadius: '0.35rem',
+                        background: 'rgba(168,85,247,0.28)',
+                        border: '1px solid rgba(168,85,247,0.38)',
+                        borderRadius: '18px',
+                        borderBottomRightRadius: isLastInGroup ? '5px' : '18px',
+                        padding: '9px 14px',
                       } : {
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderBottomLeftRadius: '0.35rem',
-                      }}>
-                      <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)', wordBreak: 'break-word' }}>{msg.text}</p>
+                        background: 'rgba(255,255,255,0.07)',
+                        border: '1px solid rgba(255,255,255,0.09)',
+                        borderRadius: '18px',
+                        borderBottomLeftRadius: isLastInGroup ? '5px' : '18px',
+                        padding: '9px 14px',
+                      }}
+                    >
+                      <p style={{ fontSize: '0.875rem', lineHeight: '1.45', color: 'rgba(255,255,255,0.92)', wordBreak: 'break-word', margin: 0 }}>
+                        {msg.text}
+                      </p>
                     </div>
-                    <p className="text-xs mt-0.5 mx-1" style={{ color: 'rgba(255,255,255,0.2)' }}>{formatTime(msg.createdAt)}</p>
+                    {isLastInGroup && (
+                      <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.2)', marginTop: '3px', marginLeft: '4px', marginRight: '4px' }}>
+                        {formatTime(msg.createdAt)}
+                      </p>
+                    )}
                   </div>
                 </div>
               )
@@ -369,52 +423,92 @@ export default function Chat() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
+        {/* ── INPUT — font-size 16px zabrání zoom na iOS ── */}
         {!isPending && (
-          <div className="p-3 md:p-4"
+          <div
             style={{
-              background: 'rgba(255,255,255,0.03)',
+              padding: '10px 12px',
+              background: 'rgba(10,10,18,0.92)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
               borderTop: '1px solid rgba(255,255,255,0.07)',
               flexShrink: 0,
-            }}>
-            <div className="flex gap-2">
-              <input type="text" value={text}
+            }}
+          >
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                ref={inputRef}
+                type="text"
+                value={text}
                 onChange={e => setText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                 placeholder="Napiš zprávu..."
                 maxLength={500}
-                className="flex-1 px-3 py-2.5 text-sm rounded-2xl outline-none transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'rgba(168,85,247,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(168,85,247,0.1)' }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.boxShadow = 'none' }}
-              />
-              <button onClick={sendMessage} disabled={!text.trim()}
-                className="font-bold px-4 py-2.5 rounded-2xl transition-all duration-200 text-sm shrink-0"
+                // font-size: 16px is CRITICAL — prevents iOS Safari zoom on focus
                 style={{
+                  flex: 1,
+                  fontSize: '16px',
+                  lineHeight: '1.4',
+                  padding: '10px 14px',
+                  borderRadius: '22px',
+                  background: 'rgba(255,255,255,0.07)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'white',
+                  outline: 'none',
+                  WebkitAppearance: 'none',
+                  // Prevents layout shift when keyboard opens
+                  minWidth: 0,
+                }}
+                onFocus={e => {
+                  e.currentTarget.style.borderColor = 'rgba(168,85,247,0.5)'
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(168,85,247,0.1)'
+                }}
+                onBlur={e => {
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!text.trim()}
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.1rem',
+                  fontWeight: 700,
                   background: text.trim() ? 'linear-gradient(135deg, #a855f7, #7c3aed)' : 'rgba(255,255,255,0.05)',
                   border: text.trim() ? '1px solid rgba(168,85,247,0.5)' : '1px solid rgba(255,255,255,0.07)',
                   color: text.trim() ? 'white' : 'rgba(255,255,255,0.2)',
-                  boxShadow: text.trim() ? '0 0 16px rgba(168,85,247,0.25)' : 'none',
-                }}>
+                  boxShadow: text.trim() ? '0 0 16px rgba(168,85,247,0.3)' : 'none',
+                  transition: 'all 0.2s',
+                  cursor: text.trim() ? 'pointer' : 'default',
+                }}
+              >
                 ↑
               </button>
             </div>
           </div>
         )}
 
-        {/* ── MOBILNÍ TAB BAR pro skupiny (jen mobil, pod inputem) ── */}
+        {/* ── MOBILNÍ TAB BAR ── */}
         {allTabs.length > 1 && (
           <div
-            className="md:hidden flex overflow-x-auto gap-2 px-3 py-2"
+            className="md:hidden"
             style={{
-              background: 'rgba(10,10,18,0.95)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              borderTop: '1px solid rgba(255,255,255,0.07)',
+              display: 'flex',
+              overflowX: 'auto',
+              gap: '8px',
+              padding: '8px 12px',
+              background: 'rgba(10,10,18,0.97)',
+              borderTop: '1px solid rgba(255,255,255,0.06)',
               flexShrink: 0,
               scrollbarWidth: 'none',
+              WebkitOverflowScrolling: 'touch',
             }}
           >
             {allTabs.map(tab => {
@@ -424,32 +518,40 @@ export default function Chat() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className="flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-xl transition-all duration-200 relative"
                   style={{
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flexShrink: 0,
+                    padding: '6px 12px',
+                    borderRadius: '20px',
                     background: isActive ? 'rgba(168,85,247,0.2)' : 'rgba(255,255,255,0.04)',
                     border: isActive ? '1px solid rgba(168,85,247,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                    transition: 'all 0.2s',
                   }}
                 >
-                  {/* Pending dot */}
                   {hasPending && (
                     <span
-                      className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-pulse"
-                      style={{ background: '#fbbf24' }}
+                      style={{
+                        position: 'absolute', top: '-2px', right: '-2px',
+                        width: '8px', height: '8px', borderRadius: '50%',
+                        background: '#fbbf24',
+                      }}
                     />
                   )}
-                  <span style={{ fontSize: tab.id === 'global' ? '0.9rem' : '0.75rem', lineHeight: 1 }}>
+                  <span style={{ fontSize: tab.id === 'global' ? '0.85rem' : '0.7rem', lineHeight: 1 }}>
                     {tab.icon}
                   </span>
-                  <span
-                    className="text-xs font-bold"
-                    style={{
-                      color: isActive ? '#e9d5ff' : 'rgba(255,255,255,0.4)',
-                      maxWidth: '6rem',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                  <span style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: isActive ? '#e9d5ff' : 'rgba(255,255,255,0.4)',
+                    maxWidth: '90px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
                     {tab.label}
                   </span>
                 </button>
@@ -461,56 +563,91 @@ export default function Chat() {
 
       {/* Modal — nová skupina */}
       {showNewGroup && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
-          <div className="w-full max-w-md p-5 md:p-6 rounded-2xl"
-            style={{ background: 'rgba(15,15,25,0.98)', border: '1px solid rgba(168,85,247,0.2)', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}>
-            <h3 className="font-black text-lg mb-5" style={{ color: 'white' }}>Nová skupina</h3>
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '16px',
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <div style={{
+            width: '100%', maxWidth: '420px',
+            padding: '24px',
+            borderRadius: '20px',
+            background: 'rgba(15,15,25,0.99)',
+            border: '1px solid rgba(168,85,247,0.2)',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
+          }}>
+            <h3 style={{ color: 'white', fontWeight: 900, fontSize: '1.1rem', marginBottom: '20px' }}>Nová skupina</h3>
 
-            <div className="mb-4">
-              <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Název skupiny</p>
-              <input type="text" value={groupName}
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                Název skupiny
+              </p>
+              <input
+                type="text"
+                value={groupName}
                 onChange={e => setGroupName(e.target.value)}
-                placeholder="např. Foosball tým A" maxLength={30}
-                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+                placeholder="např. Foosball tým A"
+                maxLength={30}
+                // 16px prevents zoom
+                style={{
+                  width: '100%', fontSize: '16px', padding: '10px 14px',
+                  borderRadius: '12px', outline: 'none',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.1)', color: 'white',
+                  boxSizing: 'border-box',
+                }}
                 onFocus={e => { e.currentTarget.style.borderColor = 'rgba(168,85,247,0.5)' }}
                 onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
               />
             </div>
 
-            <div className="mb-5">
-              <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Pozvat hráče</p>
-              <div className="flex flex-wrap gap-2">
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                Pozvat hráče
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {players.filter(p => p.uid !== user?.uid).map(p => (
-                  <button key={p.uid}
+                  <button
+                    key={p.uid}
                     onClick={() => setInviteMembers(prev => prev.includes(p.uid) ? prev.filter(id => id !== p.uid) : [...prev, p.uid])}
-                    className="px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200"
                     style={inviteMembers.includes(p.uid) ? {
+                      padding: '6px 14px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600,
                       background: 'rgba(168,85,247,0.25)', border: '1px solid rgba(168,85,247,0.5)', color: '#e9d5ff',
                     } : {
+                      padding: '6px 14px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 500,
                       background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)',
-                    }}>
+                    }}
+                  >
                     {p.displayName}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <button onClick={createGroup}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={createGroup}
                 disabled={!groupName.trim() || inviteMembers.length === 0}
-                className="flex-1 font-bold py-2.5 rounded-xl text-sm transition-all"
                 style={{
+                  flex: 1, fontWeight: 700, padding: '11px', borderRadius: '12px', fontSize: '0.9rem',
                   background: groupName.trim() && inviteMembers.length > 0 ? 'linear-gradient(135deg, #a855f7, #7c3aed)' : 'rgba(255,255,255,0.05)',
                   border: '1px solid rgba(168,85,247,0.4)', color: 'white',
                   opacity: !groupName.trim() || inviteMembers.length === 0 ? 0.4 : 1,
-                }}>
+                }}
+              >
                 Vytvořit
               </button>
-              <button onClick={() => { setShowNewGroup(false); setGroupName(''); setInviteMembers([]) }}
-                className="font-medium py-2.5 px-4 rounded-xl text-sm transition-all"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}>
+              <button
+                onClick={() => { setShowNewGroup(false); setGroupName(''); setInviteMembers([]) }}
+                style={{
+                  fontWeight: 500, padding: '11px 16px', borderRadius: '12px', fontSize: '0.9rem',
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)',
+                }}
+              >
                 Zrušit
               </button>
             </div>

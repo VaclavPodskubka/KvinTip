@@ -161,7 +161,7 @@ export default function Admin() {
     const b = editScores[match.id]?.b
     if (a === undefined || b === undefined) { toast.error('Zadej skóre!'); return }
     if (a === b) { toast.error('Skóre nemůže být remíza!'); return }
-    if (!confirm(`Nastavit výsledek ${a} : ${b}? Kredity se NEPŘEPOČÍTAJÍ — jen se uloží skóre.`)) return
+    if (!confirm(`Nastavit výsledek ${a} : ${b}? Kredity se NEPŘEPOČÍTAJÍ.`)) return
     await updateDoc(doc(db, 'matches', match.id), {
       result: { scoreA: a, scoreB: b },
       liveScoreA: a,
@@ -175,7 +175,6 @@ export default function Admin() {
     const newStatus = editStatus[match.id]
     if (!newStatus) { toast.error('Vyber status!'); return }
     if (!confirm(`Opravdu změnit status na "${newStatus}"?`)) return
-
     const updates: Record<string, unknown> = { status: newStatus, adminFixed: true }
     if (newStatus === 'playing') {
       updates.liveScoreA = match.result?.scoreA ?? 0
@@ -188,8 +187,14 @@ export default function Admin() {
   const statusLabel = (status: string) => {
     if (status === 'pending') return '⏳ Čeká'
     if (status === 'playing') return '🟢 Hraje se'
-    if (status === 'finished') return '🏁 Dokončeno'
+    if (status === 'finished') return '🏁 Hotovo'
     return status
+  }
+
+  const statusColor = (status: string) => {
+    if (status === 'playing') return '#4ade80'
+    if (status === 'pending') return '#fbbf24'
+    return 'rgba(255,255,255,0.35)'
   }
 
   if (loading) return (
@@ -204,32 +209,8 @@ export default function Admin() {
 
   if (user?.uid !== ADMIN_UID) return null
 
-  const btnActive = {
-    background: 'rgba(168,85,247,0.25)',
-    border: '1px solid rgba(168,85,247,0.5)',
-    color: '#e9d5ff',
-    borderRadius: '0.75rem',
-    padding: '0.5rem 1.25rem',
-    fontSize: '0.875rem',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  }
-
-  const btnInactive = {
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    color: 'rgba(255,255,255,0.4)',
-    borderRadius: '0.75rem',
-    padding: '0.5rem 1.25rem',
-    fontSize: '0.875rem',
-    fontWeight: 500,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  }
-
   return (
-    <main className="min-h-screen p-6 max-w-4xl mx-auto">
+    <main className="min-h-screen p-4 md:p-6 max-w-4xl mx-auto">
 
       <div className="fixed pointer-events-none"
         style={{
@@ -238,108 +219,159 @@ export default function Admin() {
           filter: 'blur(40px)', borderRadius: '50%',
         }} />
 
-      <div className="mb-8 opacity-100 translate-y-0 transition-all duration-700">
+      {/* Header */}
+      <div className="mb-6 md:mb-8">
         <p style={{ color: 'rgba(168,85,247,0.7)', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
           Správa systému
         </p>
-        <h1 className="text-3xl font-black tracking-tight" style={{ color: 'white' }}>Admin panel</h1>
-        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
+        <h1 className="text-2xl md:text-3xl font-black tracking-tight" style={{ color: 'white' }}>Admin panel</h1>
+        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem', marginTop: '0.25rem' }}>
           Správa hráčů, kreditů a zápasů
         </p>
       </div>
 
-      <div className="flex gap-2 mb-6 opacity-100 translate-y-0 transition-all duration-700">
-        <button onClick={() => setTab('players')} style={tab === 'players' ? btnActive : btnInactive}>
-          👥 Hráči
-        </button>
-        <button onClick={() => setTab('matches')} style={tab === 'matches' ? btnActive : btnInactive}>
-          ⚽ Zápasy
-        </button>
+      {/* Tabs */}
+      <div className="flex gap-2 mb-5 md:mb-6">
+        {(['players', 'matches'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            style={{
+              padding: '0.5rem 1.25rem',
+              borderRadius: '0.75rem',
+              fontSize: '0.875rem',
+              fontWeight: tab === t ? 600 : 500,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              background: tab === t ? 'rgba(168,85,247,0.25)' : 'rgba(255,255,255,0.04)',
+              border: tab === t ? '1px solid rgba(168,85,247,0.5)' : '1px solid rgba(255,255,255,0.08)',
+              color: tab === t ? '#e9d5ff' : 'rgba(255,255,255,0.4)',
+            }}
+          >
+            {t === 'players' ? '👥 Hráči' : '⚽ Zápasy'}
+          </button>
+        ))}
       </div>
 
+      {/* ── HRÁČI ── */}
       {tab === 'players' && (
         <div className="flex flex-col gap-4">
-          {players.map((player, i) => (
-            <div key={player.uid}
-              className="p-5 opacity-100 translate-y-0 transition-all duration-700"
-              style={{ ...glass, transitionDelay: `${i * 60}ms` }}>
+          {players.map((player) => (
+            <div key={player.uid} className="p-4 md:p-5" style={glass}>
 
-              <div className="flex items-center justify-between mb-5">
+              {/* Hráč info + Reset */}
+              <div className="flex items-start justify-between gap-3 mb-5">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full flex items-center justify-center font-black text-base shrink-0"
-                    style={{ background: 'rgba(168,85,247,0.25)', border: '1px solid rgba(168,85,247,0.35)', color: '#e9d5ff' }}>
+                  <div
+                    className="flex items-center justify-center font-black text-base shrink-0"
+                    style={{
+                      width: '44px', height: '44px', borderRadius: '50%',
+                      background: 'rgba(168,85,247,0.25)',
+                      border: '1px solid rgba(168,85,247,0.35)',
+                      color: '#e9d5ff',
+                    }}
+                  >
                     {player.displayName?.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-bold" style={{ color: 'white' }}>{player.displayName}</p>
-                    <div className="flex gap-3 mt-0.5">
-                      <span style={{ fontSize: '0.75rem', color: '#c084fc' }}>{player.credits ?? 0} kr</span>
-                      <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>·</span>
-                      <span style={{ fontSize: '0.75rem', color: '#818cf8' }}>ELO {player.elo ?? 1200}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>·</span>
-                      <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>{player.stats?.matches ?? 0} zápasů</span>
+                    <p className="font-bold text-sm md:text-base" style={{ color: 'white', marginBottom: '4px' }}>
+                      {player.displayName}
+                    </p>
+                    {/* Stats row — wraps on small screens */}
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      <span style={{ fontSize: '0.72rem', color: '#c084fc', fontWeight: 600 }}>
+                        {(player.credits ?? 0).toLocaleString()} kr
+                      </span>
+                      <span style={{ fontSize: '0.72rem', color: '#818cf8' }}>
+                        ELO {player.elo ?? 1200}
+                      </span>
+                      <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)' }}>
+                        {player.stats?.matches ?? 0} zápasů · {player.stats?.wins ?? 0}W / {player.stats?.losses ?? 0}L
+                      </span>
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => resetStats(player.uid, player.displayName)}
-                  className="text-xs font-bold px-3 py-1.5 rounded-xl transition-all"
-                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171' }}
-                  onMouseEnter={e => {
-                    const el = e.currentTarget as HTMLButtonElement
-                    el.style.background = 'rgba(239,68,68,0.2)'
-                    el.style.borderColor = 'rgba(239,68,68,0.45)'
-                  }}
-                  onMouseLeave={e => {
-                    const el = e.currentTarget as HTMLButtonElement
-                    el.style.background = 'rgba(239,68,68,0.1)'
-                    el.style.borderColor = 'rgba(239,68,68,0.25)'
+                  style={{
+                    flexShrink: 0,
+                    fontSize: '0.75rem', fontWeight: 700,
+                    padding: '6px 12px', borderRadius: '10px',
+                    background: 'rgba(239,68,68,0.1)',
+                    border: '1px solid rgba(239,68,68,0.25)',
+                    color: '#f87171',
+                    cursor: 'pointer',
                   }}
                 >
                   Reset
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              {/* Kredity + ELO — grid na všech velikostech */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                {/* Kredity */}
+                <div style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
                     Přidat / odebrat kredity
                   </p>
-                  <div className="flex gap-2">
+                  <div style={{ display: 'flex', gap: '8px' }}>
                     <input
                       type="number"
-                      placeholder="např. 500 nebo -100"
+                      placeholder="500 nebo -100"
                       value={creditAmounts[player.uid] || ''}
                       onChange={e => setCreditAmounts(prev => ({ ...prev, [player.uid]: Number(e.target.value) }))}
-                      className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm"
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+                      // 16px prevents iOS zoom
+                      style={{
+                        flex: 1, minWidth: 0,
+                        fontSize: '16px', padding: '9px 12px', borderRadius: '10px',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)', color: 'white',
+                        outline: 'none',
+                      }}
                     />
                     <button
                       onClick={() => addCredits(player.uid, player.displayName)}
-                      className="font-bold text-sm px-3 py-2 rounded-xl transition-all"
-                      style={{ background: 'rgba(168,85,247,0.2)', border: '1px solid rgba(168,85,247,0.4)', color: '#e9d5ff' }}>
+                      style={{
+                        fontWeight: 700, fontSize: '0.85rem', padding: '9px 16px', borderRadius: '10px',
+                        background: 'rgba(168,85,247,0.2)',
+                        border: '1px solid rgba(168,85,247,0.4)',
+                        color: '#e9d5ff', cursor: 'pointer',
+                      }}
+                    >
                       OK
                     </button>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                {/* ELO */}
+                <div style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
                     Nastavit ELO
                   </p>
-                  <div className="flex gap-2">
+                  <div style={{ display: 'flex', gap: '8px' }}>
                     <input
                       type="number"
                       placeholder="např. 1200"
                       value={eloAmounts[player.uid] || ''}
                       onChange={e => setEloAmounts(prev => ({ ...prev, [player.uid]: Number(e.target.value) }))}
-                      className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm"
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+                      style={{
+                        flex: 1, minWidth: 0,
+                        fontSize: '16px', padding: '9px 12px', borderRadius: '10px',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)', color: 'white',
+                        outline: 'none',
+                      }}
                     />
                     <button
                       onClick={() => setElo(player.uid, player.displayName)}
-                      className="font-bold text-sm px-3 py-2 rounded-xl transition-all"
-                      style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', color: '#a5b4fc' }}>
+                      style={{
+                        fontWeight: 700, fontSize: '0.85rem', padding: '9px 16px', borderRadius: '10px',
+                        background: 'rgba(99,102,241,0.2)',
+                        border: '1px solid rgba(99,102,241,0.4)',
+                        color: '#a5b4fc', cursor: 'pointer',
+                      }}
+                    >
                       OK
                     </button>
                   </div>
@@ -350,144 +382,199 @@ export default function Admin() {
         </div>
       )}
 
+      {/* ── ZÁPASY ── */}
       {tab === 'matches' && (
         <div className="flex flex-col gap-4">
           {matches.length === 0 && (
             <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.875rem' }}>Žádné zápasy.</p>
           )}
-          {matches.map((match, i) => {
+          {matches.map((match) => {
             const scoreA = match.result?.scoreA ?? 0
             const scoreB = match.result?.scoreB ?? 0
             const winnersOriginal = scoreA > scoreB ? match.teamA : match.teamB
             const losersOriginal = scoreA > scoreB ? match.teamB : match.teamA
 
-            const statusColor =
-              match.status === 'playing' ? '#4ade80' :
-              match.status === 'pending' ? '#fbbf24' :
-              'rgba(255,255,255,0.35)'
-
             return (
-              <div key={match.id}
-                className="p-5 opacity-100 translate-y-0 transition-all duration-700"
-                style={{ ...glass, transitionDelay: `${i * 50}ms` }}>
+              <div key={match.id} className="p-4 md:p-5" style={glass}>
 
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
-                      style={{ background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.25)', color: '#c084fc' }}>
+                {/* Řádek 1: sport + formát + status + skóre */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: '0.72rem', fontWeight: 700,
+                      padding: '3px 10px', borderRadius: '20px',
+                      background: 'rgba(168,85,247,0.15)',
+                      border: '1px solid rgba(168,85,247,0.25)', color: '#c084fc',
+                    }}>
                       {match.sport}
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>{match.format}</span>
-                    <span className="text-xs font-bold" style={{ color: statusColor }}>
+                    <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)' }}>{match.format}</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: statusColor(match.status) }}>
                       {statusLabel(match.status)}
                     </span>
                     {match.adminFixed && (
-                      <span className="text-xs px-2 py-0.5 rounded-full"
-                        style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
+                      <span style={{
+                        fontSize: '0.68rem', padding: '2px 8px', borderRadius: '20px',
+                        background: 'rgba(251,191,36,0.1)',
+                        border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24',
+                      }}>
                         ✏️ Admin
                       </span>
                     )}
                   </div>
                   {match.result && (
-                    <span className="font-black text-lg" style={{ color: 'white' }}>{scoreA} : {scoreB}</span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 900, color: 'white' }}>
+                      {scoreA} : {scoreB}
+                    </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 mb-4">
-                  <p className="font-bold text-sm flex-1" style={{ color: '#93c5fd' }}>
+                {/* Řádek 2: Týmy */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <p style={{ flex: 1, fontWeight: 700, fontSize: '0.875rem', color: '#93c5fd', wordBreak: 'break-word' }}>
                     {match.teamA.map(getName).join(' + ')}
                   </p>
-                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)' }}>vs</span>
-                  <p className="font-bold text-sm flex-1 text-right" style={{ color: '#fca5a5' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)', flexShrink: 0 }}>vs</span>
+                  <p style={{ flex: 1, fontWeight: 700, fontSize: '0.875rem', color: '#fca5a5', textAlign: 'right', wordBreak: 'break-word' }}>
                     {match.teamB.map(getName).join(' + ')}
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-3">
-                  <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                {/* Akce */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                  {/* Změnit status */}
+                  <div style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
                       Změnit status
                     </p>
-                    <div className="flex gap-2">
+                    <div style={{ display: 'flex', gap: '8px' }}>
                       <select
                         value={editStatus[match.id] ?? match.status}
                         onChange={e => setEditStatus(prev => ({ ...prev, [match.id]: e.target.value }))}
-                        className="flex-1 px-3 py-2 rounded-xl text-sm"
-                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>
+                        style={{
+                          flex: 1, fontSize: '0.875rem', padding: '9px 12px', borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.1)', color: 'white',
+                          outline: 'none',
+                        }}
+                      >
                         <option value="pending" style={{ background: '#1a1a2e' }}>⏳ Čeká na schválení</option>
                         <option value="playing" style={{ background: '#1a1a2e' }}>🟢 Hraje se</option>
                         <option value="finished" style={{ background: '#1a1a2e' }}>🏁 Dokončeno</option>
                       </select>
                       <button
                         onClick={() => saveStatus(match)}
-                        className="font-bold text-sm px-4 py-2 rounded-xl transition-all"
-                        style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', color: '#a5b4fc' }}>
+                        style={{
+                          fontWeight: 700, fontSize: '0.85rem', padding: '9px 16px', borderRadius: '10px',
+                          background: 'rgba(99,102,241,0.2)',
+                          border: '1px solid rgba(99,102,241,0.4)',
+                          color: '#a5b4fc', cursor: 'pointer',
+                        }}
+                      >
                         Uložit
                       </button>
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                      Upravit skóre <span style={{ textTransform: 'none', fontWeight: 400, color: 'rgba(255,255,255,0.2)' }}>(nepřepočítá kredity)</span>
+                  {/* Upravit skóre */}
+                  <div style={{ padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
+                      Upravit skóre{' '}
+                      <span style={{ textTransform: 'none', fontWeight: 400, color: 'rgba(255,255,255,0.2)' }}>
+                        (nepřepočítá kredity)
+                      </span>
                     </p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs" style={{ color: '#93c5fd' }}>Tým A</span>
-                      <input
-                        type="number" min={0}
-                        value={editScores[match.id]?.a ?? scoreA}
-                        onChange={e => setEditScores(prev => ({
-                          ...prev, [match.id]: { ...prev[match.id], a: Number(e.target.value) }
-                        }))}
-                        className="w-16 text-sm text-center rounded-xl px-2 py-2"
-                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
-                      />
-                      <span style={{ color: 'rgba(255,255,255,0.2)' }}>:</span>
-                      <input
-                        type="number" min={0}
-                        value={editScores[match.id]?.b ?? scoreB}
-                        onChange={e => setEditScores(prev => ({
-                          ...prev, [match.id]: { ...prev[match.id], b: Number(e.target.value) }
-                        }))}
-                        className="w-16 text-sm text-center rounded-xl px-2 py-2"
-                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
-                      />
-                      <span className="text-xs" style={{ color: '#fca5a5' }}>Tým B</span>
+                    {/* Na mobilu: Score inputs zarovnány přehledně */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: '160px' }}>
+                        <span style={{ fontSize: '0.72rem', color: '#93c5fd', flexShrink: 0 }}>A</span>
+                        <input
+                          type="number" min={0}
+                          value={editScores[match.id]?.a ?? scoreA}
+                          onChange={e => setEditScores(prev => ({
+                            ...prev, [match.id]: { ...prev[match.id], a: Number(e.target.value) }
+                          }))}
+                          style={{
+                            width: '56px', fontSize: '16px', textAlign: 'center',
+                            padding: '8px 6px', borderRadius: '10px',
+                            background: 'rgba(255,255,255,0.06)',
+                            border: '1px solid rgba(255,255,255,0.1)', color: 'white', outline: 'none',
+                          }}
+                        />
+                        <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '1rem' }}>:</span>
+                        <input
+                          type="number" min={0}
+                          value={editScores[match.id]?.b ?? scoreB}
+                          onChange={e => setEditScores(prev => ({
+                            ...prev, [match.id]: { ...prev[match.id], b: Number(e.target.value) }
+                          }))}
+                          style={{
+                            width: '56px', fontSize: '16px', textAlign: 'center',
+                            padding: '8px 6px', borderRadius: '10px',
+                            background: 'rgba(255,255,255,0.06)',
+                            border: '1px solid rgba(255,255,255,0.1)', color: 'white', outline: 'none',
+                          }}
+                        />
+                        <span style={{ fontSize: '0.72rem', color: '#fca5a5', flexShrink: 0 }}>B</span>
+                      </div>
                       <button
                         onClick={() => saveScore(match)}
-                        className="ml-auto font-bold text-sm px-4 py-2 rounded-xl transition-all"
-                        style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', color: '#a5b4fc' }}>
+                        style={{
+                          fontWeight: 700, fontSize: '0.85rem', padding: '9px 16px', borderRadius: '10px',
+                          background: 'rgba(99,102,241,0.2)',
+                          border: '1px solid rgba(99,102,241,0.4)',
+                          color: '#a5b4fc', cursor: 'pointer', flexShrink: 0,
+                        }}
+                      >
                         Uložit
                       </button>
                     </div>
                   </div>
 
+                  {/* Přehodit výsledek — jen dokončené */}
                   {match.status === 'finished' && match.result && (
-                    <div className="p-3 rounded-xl"
-                      style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}>
-                      <p className="text-xs font-bold mb-2" style={{ color: '#f87171' }}>
+                    <div style={{
+                      padding: '14px', borderRadius: '12px',
+                      background: 'rgba(239,68,68,0.05)',
+                      border: '1px solid rgba(239,68,68,0.18)',
+                    }}>
+                      <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#f87171', marginBottom: '12px' }}>
                         ⚠️ Přehodit výsledek + přepočítat kredity
                       </p>
-                      <div className="flex items-center justify-between mb-3">
-                        <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>
-                          <p>🏆 Aktuální vítěz: <span style={{ color: '#4ade80' }}>{winnersOriginal.map(getName).join(' + ')}</span></p>
-                          <p>❌ Poražený: <span style={{ color: '#f87171' }}>{losersOriginal.map(getName).join(' + ')}</span></p>
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>
-                          <p>→ Nový vítěz:</p>
-                          <p style={{ color: '#4ade80' }}>{losersOriginal.map(getName).join(' + ')}</p>
-                        </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
+                        <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>
+                          🏆 Aktuální vítěz:{' '}
+                          <span style={{ color: '#4ade80', fontWeight: 600 }}>
+                            {winnersOriginal.map(getName).join(' + ')}
+                          </span>
+                        </p>
+                        <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>
+                          ❌ Poražený:{' '}
+                          <span style={{ color: '#f87171', fontWeight: 600 }}>
+                            {losersOriginal.map(getName).join(' + ')}
+                          </span>
+                        </p>
+                        <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>
+                          → Nový vítěz:{' '}
+                          <span style={{ color: '#4ade80' }}>
+                            {losersOriginal.map(getName).join(' + ')}
+                          </span>
+                        </p>
                       </div>
                       <button
                         onClick={() => fixMatch(match)}
                         disabled={fixing === match.id}
-                        className="w-full font-bold py-2 px-4 rounded-xl text-sm transition-all"
                         style={{
-                          background: 'rgba(249,115,22,0.2)',
-                          border: '1px solid rgba(249,115,22,0.4)',
-                          color: '#fdba74',
+                          width: '100%', fontWeight: 700, fontSize: '0.875rem',
+                          padding: '11px', borderRadius: '10px',
+                          background: 'rgba(249,115,22,0.18)',
+                          border: '1px solid rgba(249,115,22,0.35)',
+                          color: '#fdba74', cursor: fixing === match.id ? 'not-allowed' : 'pointer',
                           opacity: fixing === match.id ? 0.5 : 1,
-                        }}>
+                          transition: 'all 0.2s',
+                        }}
+                      >
                         {fixing === match.id ? 'Opravuji...' : '🔄 Přehodit výsledek a kredity'}
                       </button>
                     </div>
