@@ -27,6 +27,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="cs">
+      <head>
+        <title>Kvintip</title>
+        <meta name="description" content="Školní ligový systém" />
+        <meta name="theme-color" content="#a855f7" />
+
+        {/* Normální ikona */}
+        <link rel="icon" href="/favicon.png" type="image/png" />
+
+        {/* Apple ikona */}
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+        {/* Android ikony */}
+        <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png" />
+
+        {/* PWA manifest pro Android */}
+        <link rel="manifest" href="/site.webmanifest" />
+      </head>
       <body className="bg-gray-950 min-h-screen">
         <AuthProvider>
           <LayoutContent>
