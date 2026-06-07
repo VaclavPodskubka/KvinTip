@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '@/lib/AuthContext'
 import Image from 'next/image'
+import Link from 'next/link'
 
 interface Player {
   uid: string
@@ -80,6 +81,19 @@ export default function Leaderboard() {
     transition: 'all 0.2s',
   }
 
+  const rowStyle = (isMe: boolean) => ({
+    borderBottom: '1px solid rgba(255,255,255,0.04)',
+    borderLeft: isMe ? '2px solid rgba(168,85,247,0.6)' : '2px solid transparent',
+    background: isMe ? 'rgba(168,85,247,0.05)' : 'transparent',
+    textDecoration: 'none',
+    display: 'grid',
+    gridTemplateColumns: '2.5rem 1fr 5rem 5rem 5rem 6rem 5rem 6rem',
+    gap: '0.5rem',
+    padding: '0.875rem 1.25rem',
+    alignItems: 'center',
+    transition: 'background 0.15s',
+  })
+
   return (
     <main className="min-h-screen p-4 md:p-6 max-w-5xl mx-auto">
       <div className="fixed pointer-events-none"
@@ -101,8 +115,9 @@ export default function Leaderboard() {
         </button>
       </div>
 
-      {/* ── DESKTOP tabulka (skrytá na mobilu) ── */}
+      {/* ── DESKTOP tabulka ── */}
       <div className="hidden md:block overflow-hidden" style={glass}>
+        {/* Hlavička */}
         <div className="grid px-5 py-3"
           style={{
             gridTemplateColumns: '2.5rem 1fr 5rem 5rem 5rem 6rem 5rem 6rem',
@@ -116,21 +131,18 @@ export default function Leaderboard() {
             </span>
           ))}
         </div>
+
+        {/* Řádky — klikatelné */}
         {sorted.map((player, index) => {
           const isMe = player.uid === user?.uid
           const winRate = getWinRate(player)
           return (
-            <div key={player.uid}
-              className="grid px-5 py-3.5 items-center transition-all duration-150"
-              style={{
-                gridTemplateColumns: '2.5rem 1fr 5rem 5rem 5rem 6rem 5rem 6rem',
-                gap: '0.5rem',
-                borderBottom: '1px solid rgba(255,255,255,0.04)',
-                borderLeft: isMe ? '2px solid rgba(168,85,247,0.6)' : '2px solid transparent',
-                background: isMe ? 'rgba(168,85,247,0.05)' : 'transparent',
-              }}
-              onMouseEnter={e => { if (!isMe) (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.025)' }}
-              onMouseLeave={e => { if (!isMe) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+            <Link
+              key={player.uid}
+              href={`/player/${player.uid}`}
+              style={rowStyle(isMe)}
+              onMouseEnter={e => { if (!isMe) (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.025)' }}
+              onMouseLeave={e => { if (!isMe) (e.currentTarget as HTMLAnchorElement).style.background = 'transparent' }}
             >
               <div style={{ textAlign: 'center' }}>
                 {index < 3 ? <span style={{ fontSize: '1.1rem' }}>{medals[index]}</span>
@@ -166,7 +178,7 @@ export default function Leaderboard() {
                 <span style={{ fontSize: '0.9rem', fontWeight: 800, color: sortBy === 'credits' ? '#e9d5ff' : 'white' }}>{(player.credits ?? 1000).toLocaleString()}</span>
                 <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', marginLeft: '0.25rem' }}>kr</span>
               </div>
-            </div>
+            </Link>
           )
         })}
         {sorted.length === 0 && (
@@ -174,21 +186,24 @@ export default function Leaderboard() {
         )}
       </div>
 
-      {/* ── MOBIL karty (skryté na desktopu) ── */}
+      {/* ── MOBIL karty ── */}
       <div className="flex flex-col gap-2 md:hidden">
         {sorted.map((player, index) => {
           const isMe = player.uid === user?.uid
           const winRate = getWinRate(player)
           return (
-            <div key={player.uid}
+            <Link
+              key={player.uid}
+              href={`/player/${player.uid}`}
               className="p-3 flex items-center gap-3"
               style={{
                 ...glass,
                 borderRadius: '1rem',
                 borderLeft: isMe ? '2px solid rgba(168,85,247,0.6)' : '2px solid transparent',
                 background: isMe ? 'rgba(168,85,247,0.07)' : 'rgba(255,255,255,0.04)',
-              }}>
-
+                textDecoration: 'none',
+              }}
+            >
               {/* Pozice */}
               <div style={{ width: '2rem', textAlign: 'center', flexShrink: 0 }}>
                 {index < 3
@@ -216,33 +231,25 @@ export default function Leaderboard() {
                   {isMe && <span style={{ fontSize: '0.6rem', color: '#a855f7', fontWeight: 700, background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '0.4rem', padding: '0.1rem 0.4rem' }}>TY</span>}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>
-                    {player.stats?.matches ?? 0} zápasů
-                  </span>
-                  <span style={{ fontSize: '0.7rem', color: '#4ade80' }}>
-                    {player.stats?.wins ?? 0}W
-                  </span>
-                  <span style={{ fontSize: '0.7rem', color: '#f87171' }}>
-                    {player.stats?.losses ?? 0}L
-                  </span>
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{player.stats?.matches ?? 0} zápasů</span>
+                  <span style={{ fontSize: '0.7rem', color: '#4ade80' }}>{player.stats?.wins ?? 0}W</span>
+                  <span style={{ fontSize: '0.7rem', color: '#f87171' }}>{player.stats?.losses ?? 0}L</span>
                   <span style={{ fontSize: '0.7rem', fontWeight: 700, color: player.stats?.matches === 0 ? 'rgba(255,255,255,0.2)' : winRate >= 60 ? '#4ade80' : winRate >= 40 ? '#fbbf24' : '#f87171' }}>
                     {player.stats?.matches === 0 ? '—' : `${winRate}%`}
                   </span>
                 </div>
               </div>
 
-              {/* Pravá strana — ELO + Kredity */}
+              {/* ELO + Kredity */}
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <p style={{ fontSize: '0.95rem', fontWeight: 800, color: sortBy === 'credits' ? '#e9d5ff' : 'white', margin: 0 }}>
-                  {sortBy === 'credits'
-                    ? `${(player.credits ?? 1000).toLocaleString()} kr`
-                    : `${player.elo ?? 1200}`}
+                  {sortBy === 'credits' ? `${(player.credits ?? 1000).toLocaleString()} kr` : `${player.elo ?? 1200}`}
                 </p>
                 <p style={{ fontSize: '0.7rem', color: sortBy === 'credits' ? '#c084fc' : 'rgba(255,255,255,0.3)', margin: 0 }}>
                   {sortBy === 'credits' ? `⚡ ${player.elo ?? 1200} ELO` : '⚡ ELO'}
                 </p>
               </div>
-            </div>
+            </Link>
           )
         })}
         {sorted.length === 0 && (

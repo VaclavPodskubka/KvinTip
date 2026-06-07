@@ -19,8 +19,6 @@ interface Match {
   acceptedBy: string[]
   createdBy: string
   referee: string | null
-  // bettingPlayers = uids of players who actually stake credits
-  // if undefined/empty → all players bet (backward compat)
   bettingPlayers?: string[]
   liveScoreA?: number
   liveScoreB?: number
@@ -98,7 +96,6 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
 
   const allPlayerUids = (match: Match) => [...match.teamA, ...match.teamB]
 
-  // Returns who actually bets — falls back to all players for old matches
   const getBettingUids = (match: Match): string[] => {
     if (!match.bettingPlayers || match.bettingPlayers.length === 0) {
       return allPlayerUids(match)
@@ -118,7 +115,6 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
     const bettingUids = getBettingUids(match)
     const isBettingPlayer = bettingUids.includes(userId)
 
-    // Only betting players need enough credits
     if (isBettingPlayer && (player.credits ?? 0) < match.credits) {
       toast.error('Nemáš dostatek kreditů!')
       return
@@ -129,7 +125,6 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
     const allAccepted = allRequired.every(uid => newAccepted.includes(uid))
 
     if (allAccepted) {
-      // Deduct credits only from betting players
       for (const uid of bettingUids) {
         const p = getPlayer(uid)
         if (!p) continue
@@ -176,11 +171,9 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
 
       const bettingUids = getBettingUids(match)
       const bettingWinners = winners.filter(uid => bettingUids.includes(uid))
-      const bettingLosers = losers.filter(uid => bettingUids.includes(uid))
       const totalPot = match.credits * bettingUids.length
       const winnings = bettingWinners.length > 0 ? Math.round(totalPot / bettingWinners.length) : 0
 
-      // Update all team members for ELO + stats regardless of betting
       for (const uid of winners) {
         const player = getPlayer(uid)
         if (!player) continue
@@ -192,7 +185,6 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
           'stats.wins': (player.stats?.wins ?? 0) + 1,
           'stats.matches': (player.stats?.matches ?? 0) + 1,
         }
-        // Credits only for betting winners
         if (bettingWinners.includes(uid)) {
           updates.credits = (player.credits ?? 0) + winnings
         }
@@ -210,7 +202,6 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
           'stats.losses': (player.stats?.losses ?? 0) + 1,
           'stats.matches': (player.stats?.matches ?? 0) + 1,
         }
-        // Non-betting losers don't lose credits (already not deducted)
         await updateDoc(doc(db, 'users', uid), updates)
       }
 
@@ -271,7 +262,7 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               </>
             )}
 
-            {/* ── ROW 1: Sport | Format | Status ── */}
+            {/* ROW 1: Sport | Format | Status */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <span style={{
                 fontSize: '0.75rem', fontWeight: 700,
@@ -281,11 +272,9 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               }}>
                 {match.sport}
               </span>
-
               <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(255,255,255,0.35)' }}>
                 {match.format}
               </span>
-
               <span style={{
                 fontSize: '0.75rem', fontWeight: 700,
                 padding: '4px 10px', borderRadius: '20px',
@@ -305,7 +294,7 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               </span>
             </div>
 
-            {/* ── ROW 2: Týmy + skóre ── */}
+            {/* ROW 2: Týmy + skóre */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px' }}>
               <div style={{ flex: 1, textAlign: 'left' }}>
                 {match.teamA.map(uid => (
@@ -352,7 +341,7 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               </div>
             </div>
 
-            {/* ── ROW 3: Info chips ── */}
+            {/* ROW 3: Info chips */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
               <span style={{
                 fontSize: '0.75rem', padding: '4px 10px', borderRadius: '20px',
@@ -361,8 +350,6 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               }}>
                 ⚽ {match.goals} gólů
               </span>
-
-              {/* Show betting info */}
               {partialBetting ? (
                 <span style={{
                   fontSize: '0.75rem', padding: '4px 10px', borderRadius: '20px',
@@ -380,7 +367,6 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
                   💰 {match.credits} kr / hráč
                 </span>
               )}
-
               {match.referee && (
                 <span style={{
                   fontSize: '0.75rem', padding: '4px 10px', borderRadius: '20px',
@@ -392,16 +378,14 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               )}
             </div>
 
-            {/* Kdo nesází (jen info, když je částečné sázení) */}
+            {/* Partial betting info */}
             {partialBetting && !isFinished && (
               <div style={{
                 marginBottom: '12px', padding: '8px 14px', borderRadius: '12px',
                 background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
                 fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', textAlign: 'center',
               }}>
-                {iAmBetting
-                  ? '💰 Ty sázíš kredity'
-                  : '🎮 Ty hraješ bez sázky'}
+                {iAmBetting ? '💰 Ty sázíš kredity' : '🎮 Ty hraješ bez sázky'}
                 {' · '}Sázejí:{' '}
                 <span style={{ color: 'rgba(255,255,255,0.6)' }}>
                   {bettingUids.map(getName).join(', ')}
@@ -409,7 +393,7 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               </div>
             )}
 
-            {/* ── Čeká na ── */}
+            {/* Čeká na */}
             {match.status === 'pending' && notAccepted.length > 0 && (
               <div style={{
                 marginBottom: '12px', padding: '8px 14px', borderRadius: '12px', textAlign: 'center',
@@ -423,7 +407,7 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               </div>
             )}
 
-            {/* ── Přijmout / Přijato ── */}
+            {/* Přijmout / Přijato */}
             {match.status === 'pending' && (
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 {!hasAccepted ? (
@@ -449,9 +433,7 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
                       el.style.boxShadow = 'none'
                     }}
                   >
-                    {iAmBetting
-                      ? `Přijmout · vsadím ${match.credits} kr`
-                      : 'Přijmout · hraju bez sázky'}
+                    {iAmBetting ? `Přijmout · vsadím ${match.credits} kr` : 'Přijmout · hraju bez sázky'}
                   </button>
                 ) : (
                   <span style={{
@@ -466,7 +448,7 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               </div>
             )}
 
-            {/* ── Live info pro hráče ── */}
+            {/* Live info */}
             {isLive && !isReferee && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px' }}>
                 <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#4ade80', animation: 'pulse 2s infinite' }} />
@@ -474,7 +456,7 @@ export default function MatchList({ userId, players, filterStatus }: Props) {
               </div>
             )}
 
-            {/* ── Rozhodčí panel ── */}
+            {/* Rozhodčí panel */}
             {isLive && isReferee && (
               <div style={{
                 marginTop: '16px', paddingTop: '16px',
