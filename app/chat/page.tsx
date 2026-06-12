@@ -600,7 +600,7 @@ export default function Chat() {
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 50,
-            display: 'flex', alignItems: 'center', justifycontent: 'center', // Zde byl opraven překlep na justifyContent u minulé opravy, nechal jsem to flexboxové
+            display: 'flex', alignItems: 'center', justifyContent: 'center', 
             padding: '16px',
             background: 'rgba(0,0,0,0.75)',
             backdropFilter: 'blur(8px)',
