@@ -3,7 +3,7 @@ import { getMessaging, getToken } from "firebase/messaging";
 import { app, db } from "./firebase"; 
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 
-const VAPID_KEY = "gF06RpQ2x9AzELbqMpWfcKdjbJ3kLVc5W3ecHbabnJk";
+const VAPID_KEY = "BNbNC4nO-uzF4memw1D2sOks_g3KMTIf11w2yFmoj8bfX4hDITjs4hdR2QsJlTOhPw9diaRP0D1bMC0YErvoVLQ";
 
 export async function requestNotificationPermission(userId: string) {
   // 1. Ověříme, že jsme v prohlížeči a že notifikace existují
