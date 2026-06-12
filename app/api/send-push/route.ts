@@ -4,24 +4,20 @@ import { getApps, initializeApp, cert, type ServiceAccount } from 'firebase-admi
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 
-// OPRAVA PRO VERCEL: Načteme klíč bezpečně z Environment Variables místo importu JSON souboru
 const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
 if (!serviceAccountKey) {
   throw new Error("Chybí proměnná prostředí FIREBASE_SERVICE_ACCOUNT_KEY. Nastav ji ve Vercelu nebo v .env.local");
 }
 
-// Převedeme JSON text z paměti na objekt ServiceAccount
 const serviceAccount = JSON.parse(serviceAccountKey) as ServiceAccount;
 
-// Inicializace Firebase Admin (pokud už neběží)
 if (getApps().length === 0) {
   initializeApp({
     credential: cert(serviceAccount),
   });
 }
 
-// Inicializace konkrétních služeb
 const firestore = getFirestore();
 const messaging = getMessaging();
 
@@ -41,7 +37,9 @@ export async function POST(request: Request) {
     }
 
     const userData = userDoc.data();
-    const tokens: string[] = userData?.pushTokens || [];
+    // Odstraníme případné duplicity přímo v poli pro jistotu
+    const rawTokens: string[] = userData?.pushTokens || [];
+    const tokens = Array.from(new Set(rawTokens)); 
 
     if (tokens.length === 0) {
       return NextResponse.json({ message: 'Uživatel nemá registrované push notifikace' }, { status: 200 });
@@ -64,18 +62,25 @@ export async function POST(request: Request) {
         }
       },
       apns: {
+        headers: {
+          // 'apns-push-type': 'alert' dává iOS vědět, že jde o viditelnou zprávu a ne o tiché pozadí
+          'apns-push-type': 'alert', 
+        },
         payload: {
           aps: {
             sound: 'default',
-            contentAvailable: true
+            // contentAvailable: true odebíráme, protože v kombinaci s hlavním 'notification' 
+            // objektem nutilo iOS probouzet service worker a vytvářet druhou (duplicitní) zprávu
           },
         },
       },
     }));
 
+    console.log(`Posílám balíček s ${messages.length} zprávami do Firebase...`);
+
     // 3. Odešleme notifikace na všechna zařízení
     const response = await messaging.sendEach(messages);
-    console.log(`Úspěšně odesláno ${response.successCount} notifikací.`);
+    console.log(`Úspěšně odesláno ${response.successCount} notifikací. Selhalo: ${response.failureCount}`);
 
     return NextResponse.json({ success: true, sentCount: response.successCount });
   } catch (error: unknown) {
