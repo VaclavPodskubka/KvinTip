@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase'
 import { doc, onSnapshot, collection, updateDoc } from 'firebase/firestore'
 import toast from 'react-hot-toast'
 import Image from 'next/image'
+import { requestNotificationPermission } from '@/lib/notifications' // <-- Krok 4: Import pomocné funkce
 
 interface UserProfile {
   displayName: string
@@ -79,6 +80,7 @@ export default function Profile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [myBets, setMyBets] = useState<Bet[]>([])
   const [bettingEvents, setBettingEvents] = useState<BettingEvent[]>([])
+  const [loadingNotifications, setLoadingNotifications] = useState(false) // <-- Krok 4: Stav pro tlačítko notifikací
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { if (!loading && !user) router.push('/login') }, [user, loading, router])
@@ -186,6 +188,24 @@ export default function Profile() {
       img.onerror = reject
       img.src = url
     })
+  }
+
+  // <-- Krok 4: Funkce pro vyvolání povolení k push zprávám
+  const handleEnableNotifications = async () => {
+    if (!user?.uid) return
+    setLoadingNotifications(true)
+    try {
+      const token = await requestNotificationPermission(user.uid)
+      if (token) {
+        toast.success('Upozornění byla aktivována!')
+      } else {
+        toast.error('Oznámení nebyla povolena.')
+      }
+    } catch {
+      toast.error('Nepodařilo se nastavit upozornění.')
+    } finally {
+      setLoadingNotifications(false)
+    }
   }
 
   const betStats = {
@@ -312,6 +332,24 @@ export default function Profile() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* ── KROK 4: MOBILNÍ UPOZORNĚNÍ ── */}
+      <div className="p-4 md:p-6 mb-4" style={glass}>
+        <h2 className="font-black text-sm md:text-base mb-2"
+          style={{ color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          🔔 Mobilní upozornění
+        </h2>
+        <p className="mb-4" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', lineHeight: '1.4' }}>
+          Chceš vědět hned, když tě někdo vyzve na zápas nebo dostaneš zprávu? Aktivuj si push notifikace přímo na plochu svého zařízení.
+        </p>
+        <button
+          onClick={handleEnableNotifications}
+          disabled={loadingNotifications}
+          className="btn-accent px-4 py-2 w-full text-center text-sm rounded-xl cursor-pointer disabled:opacity-50"
+        >
+          {loadingNotifications ? 'Nastavuji systém...' : 'Zapnout push notifikace na tomto mobilu'}
+        </button>
       </div>
 
       {/* ── VSAZENO ── */}

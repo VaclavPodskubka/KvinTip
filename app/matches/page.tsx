@@ -6,6 +6,7 @@ import { collection, addDoc, onSnapshot } from 'firebase/firestore'
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import MatchList from '@/components/MatchList'
+import { sendPushNotification } from '@/lib/sendPush' // <-- Přidán import pro push notifikace
 
 interface Player {
   uid: string
@@ -144,6 +145,29 @@ export default function Matches() {
       result: null,
       referee,
     })
+
+    // ── KROK 5: Rozeslání push notifikací všem pozvaným a rozhodčímu ──
+    try {
+      const creatorName = players.find(p => p.uid === user.uid)?.displayName || 'Někdo'
+      const targets = [...teamA, ...teamB, referee]
+      
+      targets.forEach(async (targetUserId) => {
+        // Neposílej notifikaci sám sobě
+        if (targetUserId !== user.uid) {
+          const isReferee = targetUserId === referee
+          await sendPushNotification({
+            targetUserId,
+            title: isReferee ? '📋 Žádost o rozhodování zápasu!' : '⚔️ Nová výzva na zápas!',
+            body: isReferee 
+              ? `${creatorName} tě vybral jako rozhodčího pro zápas v: ${sport}.`
+              : `${creatorName} tě zve do zápasu v: ${sport} (${format}) o ${credits} kreditů.`,
+            url: '/matches',
+          })
+        }
+      })
+    } catch (e) {
+      console.error('Chyba při odesílání hromadných push notifikací:', e)
+    }
 
     toast.success('Zápas vytvořen! Pozvánky odeslány.')
     setShowForm(false)

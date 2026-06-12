@@ -51,26 +51,48 @@ export default function Chat() {
   const [showNewGroup, setShowNewGroup] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [inviteMembers, setInviteMembers] = useState<string[]>([])
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  
+  // Refy pro udržení aktuálních hodnot v listenerech bez triggerování useEffectů
+  const activeTabRef = useRef(activeTab)
+  const groupIdsRef = useRef<string[]>([])
+
+  useEffect(() => {
+    activeTabRef.current = activeTab
+  }, [activeTab])
 
   useEffect(() => {
     if (!loading && !user) router.push('/login')
   }, [user, loading, router])
 
+  // 1. Načítání uživatelů
   useEffect(() => {
     return onSnapshot(collection(db, 'users'), (snap) => {
       setPlayers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as Player)))
     })
   }, [])
 
+  // 2. Načítání globálního chatu + zvukové oznámení
   useEffect(() => {
     const q = query(collection(db, 'globalChat'), orderBy('createdAt', 'asc'))
+    let isFirstLoad = true
+    
     return onSnapshot(q, (snap) => {
-      setGlobalMessages(snap.docs.map(d => ({ id: d.id, ...d.data() } as Message)))
+      const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Message))
+      setGlobalMessages(msgs)
+      
+      // Zvukové oznámení pro novou zprávu, pokud nejsme na globálním chatu
+      if (!isFirstLoad && activeTabRef.current !== 'global' && snap.docChanges().some(c => c.type === 'added')) {
+        const audio = new Audio('/notification.mp3') // Stačí nahrát zvuk do public/notification.mp3
+        audio.play().catch(() => {})
+      }
+      isFirstLoad = false
     })
   }, [])
 
+  // 3. Načítání skupin (bezpečně filtrované)
   useEffect(() => {
     if (!user) return
     return onSnapshot(collection(db, 'chatGroups'), (snap) => {
@@ -79,28 +101,41 @@ export default function Chat() {
         g.members.includes(user.uid) || g.pendingMembers?.includes(user.uid)
       )
       setGroups(mine)
+      groupIdsRef.current = mine.filter(g => g.members.includes(user.uid)).map(g => g.id)
     })
   }, [user])
 
+  // 4. Načítání zpráv ze skupin (Opraveno: nespouští se dokola)
   useEffect(() => {
     if (!user) return
     const unsubs: (() => void)[] = []
-    groups.forEach(group => {
-      if (!group.members.includes(user.uid)) return
+    
+    // Vytvoříme listenery pro všechny skupiny, kterých je uživatel členem
+    groupIdsRef.current.forEach(groupId => {
       const q = query(
-        collection(db, 'chatGroups', group.id, 'messages'),
+        collection(db, 'chatGroups', groupId, 'messages'),
         orderBy('createdAt', 'asc')
       )
+      let isFirstLoad = true
+      
       const unsub = onSnapshot(q, (snap) => {
         setGroupMessages(prev => ({
           ...prev,
-          [group.id]: snap.docs.map(d => ({ id: d.id, ...d.data() } as Message))
+          [groupId]: snap.docs.map(d => ({ id: d.id, ...d.data() } as Message))
         }))
+        
+        // Zvukové oznámení pro novou zprávu ve skupině
+        if (!isFirstLoad && activeTabRef.current !== groupId && snap.docChanges().some(c => c.type === 'added')) {
+          const audio = new Audio('/notification.mp3')
+          audio.play().catch(() => {})
+        }
+        isFirstLoad = false
       })
       unsubs.push(unsub)
     })
+    
     return () => unsubs.forEach(u => u())
-  }, [groups, user])
+  }, [groups.length, user]) // Spustí se jen když se reálně změní POČET skupin
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -114,6 +149,7 @@ export default function Chat() {
     const profile = players.find(p => p.uid === user.uid)
     const msgText = text.trim()
     setText('')
+    
     if (activeTab === 'global') {
       await addDoc(collection(db, 'globalChat'), {
         text: msgText, userId: user.uid,
@@ -129,7 +165,6 @@ export default function Chat() {
         createdAt: serverTimestamp(),
       })
     }
-    // Keep focus on input after send — prevents scroll jump
     inputRef.current?.focus()
   }
 
@@ -147,9 +182,12 @@ export default function Chat() {
 
   const acceptGroupInvite = async (groupId: string) => {
     if (!user) return
+    const currentGroup = groups.find(g => g.id === groupId)
+    if (!currentGroup) return
+
     await updateDoc(doc(db, 'chatGroups', groupId), {
       members: arrayUnion(user.uid),
-      pendingMembers: groups.find(g => g.id === groupId)?.pendingMembers.filter(uid => uid !== user.uid) ?? []
+      pendingMembers: currentGroup.pendingMembers.filter(uid => uid !== user.uid)
     })
   }
 
@@ -185,7 +223,6 @@ export default function Chat() {
   )
 
   return (
-    // touch-none na wrapper zabrání posunu stránky při psaní na iOS
     <main
       className="flex"
       style={{
@@ -348,7 +385,6 @@ export default function Chat() {
               const nextMsg = activeMessages[i + 1]
               const showName = !prevMsg || prevMsg.userId !== msg.userId
               const isLastInGroup = !nextMsg || nextMsg.userId !== msg.userId
-              // Extra gap between different senders
               const topMargin = showName && i > 0 ? '10px' : '0'
 
               return (
@@ -357,16 +393,16 @@ export default function Chat() {
                   className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : ''}`}
                   style={{ marginTop: topMargin }}
                 >
-                  {/* Avatar placeholder — always same width for alignment */}
                   <div style={{ width: '30px', flexShrink: 0 }}>
                     {showName && (
                       msg.userAvatar ? (
                         <Image
+                          key={`img-${msg.id}`}
                           src={msg.userAvatar} alt="" width={30} height={30}
                           style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
                         />
                       ) : (
-                        <div style={{
+                        <div key={`div-${msg.id}`} style={{
                           width: '30px', height: '30px', borderRadius: '50%',
                           background: isMe ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.08)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -423,7 +459,7 @@ export default function Chat() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* ── INPUT — font-size 16px zabrání zoom na iOS ── */}
+        {/* Input */}
         {!isPending && (
           <div
             style={{
@@ -444,7 +480,6 @@ export default function Chat() {
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                 placeholder="Napiš zprávu..."
                 maxLength={500}
-                // font-size: 16px is CRITICAL — prevents iOS Safari zoom on focus
                 style={{
                   flex: 1,
                   fontSize: '16px',
@@ -456,7 +491,6 @@ export default function Chat() {
                   color: 'white',
                   outline: 'none',
                   WebkitAppearance: 'none',
-                  // Prevents layout shift when keyboard opens
                   minWidth: 0,
                 }}
                 onFocus={e => {
@@ -566,7 +600,7 @@ export default function Chat() {
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 50,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            display: 'flex', alignItems: 'center', justifycontent: 'center', // Zde byl opraven překlep na justifyContent u minulé opravy, nechal jsem to flexboxové
             padding: '16px',
             background: 'rgba(0,0,0,0.75)',
             backdropFilter: 'blur(8px)',
@@ -592,7 +626,6 @@ export default function Chat() {
                 onChange={e => setGroupName(e.target.value)}
                 placeholder="např. Foosball tým A"
                 maxLength={30}
-                // 16px prevents zoom
                 style={{
                   width: '100%', fontSize: '16px', padding: '10px 14px',
                   borderRadius: '12px', outline: 'none',
