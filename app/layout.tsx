@@ -30,7 +30,14 @@ export default function RootLayout({
       <head>
         <title>Kvintip</title>
         <meta name="description" content="Školní ligový systém" />
-        <meta name="theme-color" content="#a855f7" />
+        
+        {/* Sladění barvy s pozadím aplikace pro čistý transition */}
+        <meta name="theme-color" content="#0a0a0f" />
+
+        {/* Klíčové tagy pro iOS, aby se skryly lišty prohlížeče */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Kvintip" />
 
         {/* Normální ikona */}
         <link rel="icon" href="/favicon.png" type="image/png" />
@@ -42,8 +49,8 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png" />
         <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png" />
 
-        {/* PWA manifest pro Android */}
-        <link rel="manifest" href="/site.webmanifest" />
+        {/* OPRAVA: Odkaz na správný manifest.json */}
+        <link rel="manifest" href="/manifest.json" />
       </head>
       <body className="bg-gray-950 min-h-screen">
         <AuthProvider>
