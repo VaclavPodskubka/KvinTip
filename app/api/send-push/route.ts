@@ -3,12 +3,18 @@ import { NextResponse } from 'next/server';
 import { getApps, initializeApp, cert, type ServiceAccount } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
-import serviceAccountJson from '@/firebase-admin.json';
 
-// Převedeme importovaný JSON na typ ServiceAccount, který Firebase Admin nativně zná
-const serviceAccount = serviceAccountJson as ServiceAccount;
+// OPRAVA PRO VERCEL: Načteme klíč bezpečně z Environment Variables místo importu JSON souboru
+const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
-// Inicializace Firebase Admin
+if (!serviceAccountKey) {
+  throw new Error("Chybí proměnná prostředí FIREBASE_SERVICE_ACCOUNT_KEY. Nastav ji ve Vercelu nebo v .env.local");
+}
+
+// Převedeme JSON text z paměti na objekt ServiceAccount
+const serviceAccount = JSON.parse(serviceAccountKey) as ServiceAccount;
+
+// Inicializace Firebase Admin (pokud už neběží)
 if (getApps().length === 0) {
   initializeApp({
     credential: cert(serviceAccount),
