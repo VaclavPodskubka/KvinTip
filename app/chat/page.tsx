@@ -9,6 +9,7 @@ import {
   updateDoc, arrayUnion, serverTimestamp, query, orderBy
 } from 'firebase/firestore'
 import Image from 'next/image'
+import { toast, Toaster } from 'react-hot-toast'
 
 interface Timestamp {
   seconds: number
@@ -55,17 +56,42 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   
+  // OPRAVA CHYBY 1: Časovou kotvu inicializujeme jako null a nastavíme bezpečně v useEffectu
+  const componentLoadTimeRef = useRef<number | null>(null)
+
   // Refy pro udržení aktuálních hodnot v listenerech bez triggerování useEffectů
   const activeTabRef = useRef(activeTab)
   const groupIdsRef = useRef<string[]>([])
+  const playersRef = useRef<Player[]>([])
+
+  useEffect(() => {
+    // Bezpečné nastavení času načtení komponenty na straně klienta
+    if (componentLoadTimeRef.current === null) {
+      componentLoadTimeRef.current = Date.now()
+    }
+  }, [])
 
   useEffect(() => {
     activeTabRef.current = activeTab
   }, [activeTab])
 
   useEffect(() => {
+    playersRef.current = players
+  }, [players])
+
+  useEffect(() => {
     if (!loading && !user) router.push('/login')
   }, [user, loading, router])
+
+  // Pomocná funkce pro získání jména
+  const getName = (uid: string) =>
+    playersRef.current.find(p => p.uid === uid)?.displayName ?? 'Neznámý'
+
+  // Společná funkce pro přehrání zvuku
+  const playNotificationSound = () => {
+    const audio = new Audio('/notification.mp3')
+    audio.play().catch(() => {})
+  }
 
   // 1. Načítání uživatelů
   useEffect(() => {
@@ -74,7 +100,7 @@ export default function Chat() {
     })
   }, [])
 
-  // 2. Načítání globálního chatu + zvukové oznámení
+  // 2. Načítání globálního chatu + textové a zvukové oznámení
   useEffect(() => {
     const q = query(collection(db, 'globalChat'), orderBy('createdAt', 'asc'))
     let isFirstLoad = true
@@ -83,18 +109,32 @@ export default function Chat() {
       const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Message))
       setGlobalMessages(msgs)
       
-      // Zvukové oznámení pro novou zprávu, pokud nejsme na globálním chatu
-      if (!isFirstLoad && activeTabRef.current !== 'global' && snap.docChanges().some(c => c.type === 'added')) {
-        const audio = new Audio('/notification.mp3') // Stačí nahrát zvuk do public/notification.mp3
-        audio.play().catch(() => {})
+      if (!isFirstLoad && activeTabRef.current !== 'global') {
+        snap.docChanges().forEach(change => {
+          if (change.type === 'added') {
+            const newMsg = change.doc.data() as Message
+            if (newMsg.userId !== user?.uid && newMsg.createdAt && componentLoadTimeRef.current) {
+              const msgTime = newMsg.createdAt.seconds * 1000
+              if (msgTime > componentLoadTimeRef.current - 5000) {
+                playNotificationSound()
+                toast(`🌍 ${newMsg.userName} (Veřejný chat): ${newMsg.text}`, {
+                  duration: 4000,
+                  style: { background: '#151525', color: '#fff', border: '1px solid rgba(168,85,247,0.4)' }
+                })
+              }
+            }
+          }
+        })
       }
       isFirstLoad = false
     })
-  }, [])
+  }, [user])
 
-  // 3. Načítání skupin (bezpečně filtrované)
+  // 3. Načítání skupin + Notifikace na novou skupinu (pozvánku)
   useEffect(() => {
     if (!user) return
+    let isFirstLoad = true
+
     return onSnapshot(collection(db, 'chatGroups'), (snap) => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Group))
       const mine = all.filter(g =>
@@ -102,15 +142,35 @@ export default function Chat() {
       )
       setGroups(mine)
       groupIdsRef.current = mine.filter(g => g.members.includes(user.uid)).map(g => g.id)
+
+      if (!isFirstLoad) {
+        snap.docChanges().forEach(change => {
+          if (change.type === 'added') {
+            const newGroup = change.doc.data() as Group
+            if (newGroup.pendingMembers?.includes(user.uid) && newGroup.createdAt && componentLoadTimeRef.current) {
+              const groupTime = newGroup.createdAt.seconds * 1000
+              if (groupTime > componentLoadTimeRef.current - 5000) {
+                const creatorName = getName(newGroup.createdBy)
+                playNotificationSound()
+                toast(`✨ ${creatorName} vytvořil novou skupinu "${newGroup.name}". Chceš se přidat?`, {
+                  duration: 6000,
+                  style: { background: '#151525', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.4)' }
+                })
+              }
+            }
+          }
+        })
+      }
+      isFirstLoad = false
     })
   }, [user])
 
-  // 4. Načítání zpráv ze skupin (Opraveno: nespouští se dokola)
+  // 4. Načítání zpráv ze skupin + cílené notifikace
+  // OPRAVA CHYBY 2: Přidáno 'groups' do pole závislostí
   useEffect(() => {
     if (!user) return
     const unsubs: (() => void)[] = []
     
-    // Vytvoříme listenery pro všechny skupiny, kterých je uživatel členem
     groupIdsRef.current.forEach(groupId => {
       const q = query(
         collection(db, 'chatGroups', groupId, 'messages'),
@@ -124,10 +184,25 @@ export default function Chat() {
           [groupId]: snap.docs.map(d => ({ id: d.id, ...d.data() } as Message))
         }))
         
-        // Zvukové oznámení pro novou zprávu ve skupině
-        if (!isFirstLoad && activeTabRef.current !== groupId && snap.docChanges().some(c => c.type === 'added')) {
-          const audio = new Audio('/notification.mp3')
-          audio.play().catch(() => {})
+        if (!isFirstLoad && activeTabRef.current !== groupId) {
+          const currentGroup = groups.find(g => g.id === groupId)
+          const groupName = currentGroup ? currentGroup.name : 'Skupina'
+
+          snap.docChanges().forEach(change => {
+            if (change.type === 'added') {
+              const newMsg = change.doc.data() as Message
+              if (newMsg.userId !== user.uid && newMsg.createdAt && componentLoadTimeRef.current) {
+                const msgTime = newMsg.createdAt.seconds * 1000
+                if (msgTime > componentLoadTimeRef.current - 5000) {
+                  playNotificationSound()
+                  toast(`💬 Nová zpráva ve skupině ${groupName} od ${newMsg.userName}: ${newMsg.text}`, {
+                    duration: 4000,
+                    style: { background: '#10101a', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)' }
+                  })
+                }
+              }
+            }
+          })
         }
         isFirstLoad = false
       })
@@ -135,14 +210,11 @@ export default function Chat() {
     })
     
     return () => unsubs.forEach(u => u())
-  }, [groups.length, user]) // Spustí se jen když se reálně změní POČET skupin
+  }, [groups, user])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [globalMessages, groupMessages, activeTab])
-
-  const getName = (uid: string) =>
-    players.find(p => p.uid === uid)?.displayName ?? 'Neznámý'
 
   const sendMessage = async () => {
     if (!text.trim() || !user) return
@@ -232,6 +304,8 @@ export default function Chat() {
         overflow: 'hidden',
       }}
     >
+      <Toaster position="top-right" reverseOrder={false} />
+
       {/* ── DESKTOP SIDEBAR ── */}
       <div
         className="hidden md:flex flex-col shrink-0"
@@ -327,7 +401,7 @@ export default function Chat() {
               <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', marginTop: '1px' }}>{players.length} hráčů online</p>
             ) : activeGroup ? (
               <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {activeGroup.members.map(getName).join(', ')}
+                {activeGroup.members.map((id) => players.find(p => p.uid === id)?.displayName ?? 'Neznámý').join(', ')}
               </p>
             ) : null}
           </div>
