@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore'
 import Image from 'next/image'
 import { toast, Toaster } from 'react-hot-toast'
+import { sendPushNotification } from '@/lib/sendPush' // <-- Přidán import push notifikací
 
 interface Timestamp {
   seconds: number
@@ -56,16 +57,12 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   
-  // OPRAVA CHYBY 1: Časovou kotvu inicializujeme jako null a nastavíme bezpečně v useEffectu
   const componentLoadTimeRef = useRef<number | null>(null)
-
-  // Refy pro udržení aktuálních hodnot v listenerech bez triggerování useEffectů
   const activeTabRef = useRef(activeTab)
   const groupIdsRef = useRef<string[]>([])
   const playersRef = useRef<Player[]>([])
 
   useEffect(() => {
-    // Bezpečné nastavení času načtení komponenty na straně klienta
     if (componentLoadTimeRef.current === null) {
       componentLoadTimeRef.current = Date.now()
     }
@@ -83,11 +80,9 @@ export default function Chat() {
     if (!loading && !user) router.push('/login')
   }, [user, loading, router])
 
-  // Pomocná funkce pro získání jména
   const getName = (uid: string) =>
     playersRef.current.find(p => p.uid === uid)?.displayName ?? 'Neznámý'
 
-  // Společná funkce pro přehrání zvuku
   const playNotificationSound = () => {
     const audio = new Audio('/notification.mp3')
     audio.play().catch(() => {})
@@ -100,7 +95,7 @@ export default function Chat() {
     })
   }, [])
 
-  // 2. Načítání globálního chatu + textové a zvukové oznámení
+  // 2. Načítání globálního chatu + lokální UI toast
   useEffect(() => {
     const q = query(collection(db, 'globalChat'), orderBy('createdAt', 'asc'))
     let isFirstLoad = true
@@ -130,7 +125,7 @@ export default function Chat() {
     })
   }, [user])
 
-  // 3. Načítání skupin + Notifikace na novou skupinu (pozvánku)
+  // 3. Načítání skupin + lokální UI toast na pozvánku
   useEffect(() => {
     if (!user) return
     let isFirstLoad = true
@@ -165,8 +160,7 @@ export default function Chat() {
     })
   }, [user])
 
-  // 4. Načítání zpráv ze skupin + cílené notifikace
-  // OPRAVA CHYBY 2: Přidáno 'groups' do pole závislostí
+  // 4. Načítání zpráv ze skupin + lokální UI toast
   useEffect(() => {
     if (!user) return
     const unsubs: (() => void)[] = []
@@ -216,37 +210,98 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [globalMessages, groupMessages, activeTab])
 
+  // ── ODESÍLÁNÍ ZPRÁVY + PUSH NOTIFIKACE ──
   const sendMessage = async () => {
     if (!text.trim() || !user) return
     const profile = players.find(p => p.uid === user.uid)
+    const senderName = profile?.displayName ?? 'Někdo'
     const msgText = text.trim()
     setText('')
     
-    if (activeTab === 'global') {
-      await addDoc(collection(db, 'globalChat'), {
-        text: msgText, userId: user.uid,
-        userName: profile?.displayName ?? 'Neznámý',
-        userAvatar: profile?.avatar ?? null,
-        createdAt: serverTimestamp(),
-      })
-    } else {
-      await addDoc(collection(db, 'chatGroups', activeTab, 'messages'), {
-        text: msgText, userId: user.uid,
-        userName: profile?.displayName ?? 'Neznámý',
-        userAvatar: profile?.avatar ?? null,
-        createdAt: serverTimestamp(),
-      })
+    try {
+      if (activeTab === 'global') {
+        // Uložení do Firebase
+        await addDoc(collection(db, 'globalChat'), {
+          text: msgText, userId: user.uid,
+          userName: senderName,
+          userAvatar: profile?.avatar ?? null,
+          createdAt: serverTimestamp(),
+        })
+
+        // Rozeslání push notifikace všem registrovaným uživatelům kromě sebe
+        players.forEach(async (p) => {
+          if (p.uid !== user.uid) {
+            await sendPushNotification({
+              targetUserId: p.uid,
+              title: `🌍 Globální chat`,
+              body: `${senderName}: ${msgText}`,
+              url: '/chat',
+            }).catch(e => console.error(e))
+          }
+        })
+
+      } else {
+        // Uložení do podkolekce zpráv dané skupiny
+        await addDoc(collection(db, 'chatGroups', activeTab, 'messages'), {
+          text: msgText, userId: user.uid,
+          userName: senderName,
+          userAvatar: profile?.avatar ?? null,
+          createdAt: serverTimestamp(),
+        })
+
+        // Získání aktuální skupiny pro zjištění členů
+        const currentGroup = groups.find(g => g.id === activeTab)
+        if (currentGroup) {
+          // Rozeslání všem aktuálním schváleným členům skupiny kromě sebe
+          currentGroup.members.forEach(async (memberId) => {
+            if (memberId !== user.uid) {
+              await sendPushNotification({
+                targetUserId: memberId,
+                title: `💬 Skupina: ${currentGroup.name}`,
+                body: `${senderName}: ${msgText}`,
+                url: '/chat',
+              }).catch(e => console.error(e))
+            }
+          })
+        }
+      }
+    } catch (err) {
+      console.error('Chyba odesílání zprávy nebo push notifikací:', err)
     }
+
     inputRef.current?.focus()
   }
 
+  // ── VYTVOŘENÍ SKUPINY + PUSH NOTIFIKACE PRO POZVANÉ ──
   const createGroup = async () => {
     if (!groupName.trim() || !user || inviteMembers.length === 0) return
-    await addDoc(collection(db, 'chatGroups'), {
-      name: groupName.trim(), createdBy: user.uid,
-      members: [user.uid], pendingMembers: inviteMembers,
-      createdAt: serverTimestamp(),
-    })
+    const creatorName = players.find(p => p.uid === user.uid)?.displayName || 'Někdo'
+    const finalGroupName = groupName.trim()
+
+    try {
+      // Uložení skupiny do DB
+      await addDoc(collection(db, 'chatGroups'), {
+        name: finalGroupName, createdBy: user.uid,
+        members: [user.uid], pendingMembers: inviteMembers,
+        createdAt: serverTimestamp(),
+      })
+
+      // Rozeslání push notifikace všem uživatelům, kteří dostali pozvánku
+      inviteMembers.forEach(async (targetUserId) => {
+        if (targetUserId !== user.uid) {
+          await sendPushNotification({
+            targetUserId,
+            title: `✨ Nová skupinová pozvánka!`,
+            body: `${creatorName} tě pozval do skupiny "${finalGroupName}".`,
+            url: '/chat',
+          }).catch(e => console.error(e))
+        }
+      })
+
+    } catch (err) {
+      console.error('Chyba při zakládání skupiny nebo odesílání push pozvánek:', err)
+    }
+
     setGroupName('')
     setInviteMembers([])
     setShowNewGroup(false)
