@@ -1,4 +1,3 @@
-// app/api/send-push/route.ts
 import { NextResponse } from 'next/server';
 import { getApps, initializeApp, cert, type ServiceAccount } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -37,17 +36,18 @@ export async function POST(request: Request) {
     }
 
     const userData = userDoc.data();
-    // Odstraníme případné duplicity přímo v poli pro jistotu
+    // Přísná filtrace duplicitních tokenů v poli
     const rawTokens: string[] = userData?.pushTokens || [];
-    const tokens = Array.from(new Set(rawTokens)); 
+    const tokens = Array.from(new Set(rawTokens.filter(t => typeof t === 'string' && t.trim() !== ''))); 
 
     if (tokens.length === 0) {
       return NextResponse.json({ message: 'Uživatel nemá registrované push notifikace' }, { status: 200 });
     }
 
-    // 2. Připravíme zprávy pro všechna zařízení uživatele
-    const messages = tokens.map(token => ({
-      token: token,
+    // 2. Použijeme Multicast zprávu - posílá jeden čistý payload na více tokenů najednou
+    // Tím eliminujeme duplicitní chování smyček a dvojení na straně Apple APNS
+    const multicastMessage = {
+      tokens: tokens, // Pole všech tokenů uživatele
       notification: {
         title: title,
         body: body,
@@ -63,24 +63,29 @@ export async function POST(request: Request) {
       },
       apns: {
         headers: {
-          // 'apns-push-type': 'alert' dává iOS vědět, že jde o viditelnou zprávu a ne o tiché pozadí
-          'apns-push-type': 'alert', 
+          'apns-push-type': 'alert',
+          'apns-priority': '10', // Okamžité doručení
         },
         payload: {
           aps: {
+            alert: {
+              title: title,
+              body: body,
+            },
             sound: 'default',
-            // contentAvailable: true odebíráme, protože v kombinaci s hlavním 'notification' 
-            // objektem nutilo iOS probouzet service worker a vytvářet druhou (duplicitní) zprávu
           },
         },
       },
-    }));
+    };
 
-    console.log(`Posílám balíček s ${messages.length} zprávami do Firebase...`);
+    console.log(`Posílám multicast notifikaci pro uživatele ${targetUserId} na ${tokens.length} tokenů...`);
 
-    // 3. Odešleme notifikace na všechna zařízení
-    const response = await messaging.sendEach(messages);
+    // 3. Odešleme pomocí hromadného multicastu
+    const response = await messaging.sendEachForMulticast(multicastMessage);
     console.log(`Úspěšně odesláno ${response.successCount} notifikací. Selhalo: ${response.failureCount}`);
+
+    // Nepovinné, ale doporučené: Pokud nějaké tokeny selhaly (uživatel smazal appku), 
+    // bylo by dobré je z Firestore časem vymazat, aby se pole nezanášelo mrtvými tokeny.
 
     return NextResponse.json({ success: true, sentCount: response.successCount });
   } catch (error: unknown) {
