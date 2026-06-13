@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase'
 import { doc, onSnapshot, collection, updateDoc } from 'firebase/firestore'
 import toast from 'react-hot-toast'
 import Image from 'next/image'
-import { requestNotificationPermission } from '@/lib/notifications' // <-- Krok 4: Import pomocné funkce
+import { requestNotificationPermission } from '@/lib/notifications'
 
 interface UserProfile {
   displayName: string
@@ -15,6 +15,7 @@ interface UserProfile {
   elo: number
   photo?: string
   avatar?: string
+  pushTokens?: string[] // <-- Přidáno do interface pro kontrolu
   stats?: {
     matches?: number
     wins?: number
@@ -80,7 +81,11 @@ export default function Profile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [myBets, setMyBets] = useState<Bet[]>([])
   const [bettingEvents, setBettingEvents] = useState<BettingEvent[]>([])
-  const [loadingNotifications, setLoadingNotifications] = useState(false) // <-- Krok 4: Stav pro tlačítko notifikací
+  const [loadingNotifications, setLoadingNotifications] = useState(false)
+  
+  // Lokální stav pro okamžité skrytí sekce po úspěšném kliku
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { if (!loading && !user) router.push('/login') }, [user, loading, router])
@@ -88,7 +93,14 @@ export default function Profile() {
   useEffect(() => {
     if (!user) return
     return onSnapshot(doc(db, 'users', user.uid), (snap) => {
-      if (snap.exists()) setProfile(snap.data() as UserProfile)
+      if (snap.exists()) {
+        const data = snap.data() as UserProfile
+        setProfile(data)
+        // Pokud už uživatel v DB má uložené pushTokens, nastavíme stav na true
+        if (data.pushTokens && data.pushTokens.length > 0) {
+          setNotificationsEnabled(true)
+        }
+      }
     })
   }, [user])
 
@@ -190,7 +202,6 @@ export default function Profile() {
     })
   }
 
-  // <-- Krok 4: Funkce pro vyvolání povolení k push zprávám
   const handleEnableNotifications = async () => {
     if (!user?.uid) return
     setLoadingNotifications(true)
@@ -198,6 +209,7 @@ export default function Profile() {
       const token = await requestNotificationPermission(user.uid)
       if (token) {
         toast.success('Upozornění byla aktivována!')
+        setNotificationsEnabled(true) // Schová sekci okamžitě po schválení
       } else {
         toast.error('Oznámení nebyla povolena.')
       }
@@ -297,7 +309,6 @@ export default function Profile() {
             </div>
           ) : (
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              {/* Jméno bez truncate — zobrazí se celé */}
               <h1 className="text-xl md:text-2xl font-black" style={{ color: 'white', wordBreak: 'break-word' }}>
                 {profile.displayName}
               </h1>
@@ -334,23 +345,25 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* ── KROK 4: MOBILNÍ UPOZORNĚNÍ ── */}
-      <div className="p-4 md:p-6 mb-4" style={glass}>
-        <h2 className="font-black text-sm md:text-base mb-2"
-          style={{ color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          🔔 Mobilní upozornění
-        </h2>
-        <p className="mb-4" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', lineHeight: '1.4' }}>
-          Chceš vědět hned, když tě někdo vyzve na zápas nebo dostaneš zprávu? Aktivuj si push notifikace přímo na plochu svého zařízení.
-        </p>
-        <button
-          onClick={handleEnableNotifications}
-          disabled={loadingNotifications}
-          className="btn-accent px-4 py-2 w-full text-center text-sm rounded-xl cursor-pointer disabled:opacity-50"
-        >
-          {loadingNotifications ? 'Nastavuji systém...' : 'Zapnout push notifikace na tomto mobilu'}
-        </button>
-      </div>
+      {/* ── PODMÍNĚNÉ ZOBRAZENÍ: SEKCE NOTIFIKACÍ SE ZOBRAZÍ JEN POKUD NEJSOU AKTIVNÍ ── */}
+      {!notificationsEnabled && (
+        <div className="p-4 md:p-6 mb-4" style={glass}>
+          <h2 className="font-black text-sm md:text-base mb-2"
+            style={{ color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            🔔 Mobilní upozornění
+          </h2>
+          <p className="mb-4" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', lineHeight: '1.4' }}>
+            Chceš vědět hned, když tě někdo vyzve na zápas nebo dostaneš zprávu? Aktivuj si push notifikace přímo na plochu svého zařízení.
+          </p>
+          <button
+            onClick={handleEnableNotifications}
+            disabled={loadingNotifications}
+            className="btn-accent px-4 py-2 w-full text-center text-sm rounded-xl cursor-pointer disabled:opacity-50"
+          >
+            {loadingNotifications ? 'Nastavuji systém...' : 'Zapnout push notifikace na tomto mobilu'}
+          </button>
+        </div>
+      )}
 
       {/* ── VSAZENO ── */}
       {stakedCredits > 0 && (
@@ -456,7 +469,7 @@ export default function Profile() {
               const pickLabel = bet.pick === 'a' ? event?.teamA : bet.pick === 'b' ? event?.teamB : 'Remíza'
               const potentialWin = Math.round(bet.amount * bet.odds)
               const isWon = bet.status === 'won'
-              const isLost = bet.status === 'lost'
+                const isLost = bet.status === 'lost'
 
               return (
                 <div key={bet.id} className="p-3 rounded-xl"
@@ -467,7 +480,6 @@ export default function Profile() {
                   } : {
                     background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
                   }}>
-                  {/* Řádek 1: zápas + status */}
                   <div className="flex items-start justify-between mb-1.5 gap-2">
                     <p className="font-bold text-sm" style={{ color: 'white', flex: 1, wordBreak: 'break-word' }}>
                       {event?.teamA ?? '?'} vs {event?.teamB ?? '?'}
@@ -484,7 +496,6 @@ export default function Profile() {
                     </span>
                   </div>
 
-                  {/* Řádek 2: tip + vsazeno + výhra */}
                   <div className="flex items-center justify-between">
                     <div>
                       <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)' }}>
