@@ -1,5 +1,3 @@
-// public/firebase-messaging-sw.js
-
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 
@@ -14,24 +12,17 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Správné ošetření pozadí: Necháme systém vyrenderovat notifikaci z payloadu.
+// Service worker ji už nesmí duplikovat!
 messaging.onBackgroundMessage((payload) => {
-  console.log('Přišla notifikace na pozadí:', payload);
-
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: '/android-chrome-192x192.png', // Opraveno podle tvých reálných ikon
-    badge: '/android-chrome-192x192.png', 
-    data: {
-      url: payload.data?.url || '/' 
-    }
-  };
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  console.log('🔔 Firebase doručil notifikaci na pozadí systému:', payload);
+  // Už zde nevoláme self.registration.showNotification! 
+  // Firebase Admin SDK posílá objekt "notification", takže OS ji ukáže automaticky sám.
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  // Načtení URL adresy z dat notifikace, která přišla ze serveru
   const targetUrl = event.notification.data?.url || '/';
   
   event.waitUntil(
