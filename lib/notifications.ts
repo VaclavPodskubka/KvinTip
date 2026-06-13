@@ -1,7 +1,6 @@
-// lib/notifications.ts
 import { getMessaging, getToken } from "firebase/messaging";
 import { app, db } from "./firebase"; 
-import { doc, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 const VAPID_KEY = "BNbNC4nO-uzF4memw1D2sOks_g3KMTIf11w2yFmoj8bfX4hDITjs4hdR2QsJlTOhPw9diaRP0D1bMC0YErvoVLQ";
 
@@ -13,7 +12,7 @@ export async function requestNotificationPermission(userId: string) {
     return;
   }
 
-  // 2. APPLE/iOS FIX: Žádost o povolení musí proběhnout OKAMŽITĚ na začátku, bez awaitů okolo
+  // 2. APPLE/iOS FIX: Žádost o povolení musí proběhnout OKAMŽITÊ na začátku
   const permission = await Notification.requestPermission();
   
   if (permission !== "granted") {
@@ -31,11 +30,34 @@ export async function requestNotificationPermission(userId: string) {
       console.log("Push token získán:", token);
       
       const userRef = doc(db, "users", userId);
+      const userSnap = await getDoc(userRef);
+      
+      let currentTokens: string[] = [];
+      
+      if (userSnap.exists()) {
+        currentTokens = userSnap.data().pushTokens || [];
+      }
+
+      // POJISTKA: Pokud už přesně tento token v databázi existuje, nepokračujeme dál
+      if (currentTokens.includes(token)) {
+        console.log("📋 Tento token již v databázi existuje. Vynechávám duplicitní zápis.");
+        // Pro jistotu vyčistíme případné historické duplicity, které v DB už visí
+        const uniqueExisting = Array.from(new Set(currentTokens));
+        if (uniqueExisting.length !== currentTokens.length) {
+          await updateDoc(userRef, { pushTokens: uniqueExisting });
+        }
+        return token;
+      }
+
+      // Vytvoříme nové pole, přidáme aktuální token a pro jistotu vyčistíme veškeré duplicity
+      const updatedTokens = Array.from(new Set([...currentTokens, token]));
+
+      // Zapíšeme čisté pole bez duplicit zpět do Firestore
       await updateDoc(userRef, {
-        pushTokens: arrayUnion(token)
+        pushTokens: updatedTokens
       });
       
-      console.log("Token úspěšně uložen do Firestore!");
+      console.log("Token úspěšně uložen do Firestore bez duplicit!");
       alert("Oznámení byla úspěšně aktivována!");
       return token;
     } else {
