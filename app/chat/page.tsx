@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore'
 import Image from 'next/image'
 import { toast, Toaster } from 'react-hot-toast'
-import { sendPushNotification } from '@/lib/sendPush' // <-- Přidán import push notifikací
+import { sendPushNotification } from '@/lib/sendPush'
 
 interface Timestamp {
   seconds: number
@@ -88,6 +88,11 @@ export default function Chat() {
     audio.play().catch(() => {})
   }
 
+  const playChatSound = () => {
+    const audio = new Audio('/sound chat.mp3')
+    audio.play().catch(() => {})
+  }
+
   // 1. Načítání uživatelů
   useEffect(() => {
     return onSnapshot(collection(db, 'users'), (snap) => {
@@ -112,6 +117,7 @@ export default function Chat() {
               const msgTime = newMsg.createdAt.seconds * 1000
               if (msgTime > componentLoadTimeRef.current - 5000) {
                 playNotificationSound()
+                playChatSound()
                 toast(`🌍 ${newMsg.userName} (Veřejný chat): ${newMsg.text}`, {
                   duration: 4000,
                   style: { background: '#151525', color: '#fff', border: '1px solid rgba(168,85,247,0.4)' }
@@ -147,6 +153,7 @@ export default function Chat() {
               if (groupTime > componentLoadTimeRef.current - 5000) {
                 const creatorName = getName(newGroup.createdBy)
                 playNotificationSound()
+                playChatSound()
                 toast(`✨ ${creatorName} vytvořil novou skupinu "${newGroup.name}". Chceš se přidat?`, {
                   duration: 6000,
                   style: { background: '#151525', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.4)' }
@@ -189,6 +196,7 @@ export default function Chat() {
                 const msgTime = newMsg.createdAt.seconds * 1000
                 if (msgTime > componentLoadTimeRef.current - 5000) {
                   playNotificationSound()
+                  playChatSound()
                   toast(`💬 Nová zpráva ve skupině ${groupName} od ${newMsg.userName}: ${newMsg.text}`, {
                     duration: 4000,
                     style: { background: '#10101a', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)' }
@@ -220,7 +228,6 @@ export default function Chat() {
     
     try {
       if (activeTab === 'global') {
-        // Uložení do Firebase
         await addDoc(collection(db, 'globalChat'), {
           text: msgText, userId: user.uid,
           userName: senderName,
@@ -228,7 +235,6 @@ export default function Chat() {
           createdAt: serverTimestamp(),
         })
 
-        // Rozeslání push notifikace všem registrovaným uživatelům kromě sebe
         players.forEach(async (p) => {
           if (p.uid !== user.uid) {
             await sendPushNotification({
@@ -241,7 +247,6 @@ export default function Chat() {
         })
 
       } else {
-        // Uložení do podkolekce zpráv dané skupiny
         await addDoc(collection(db, 'chatGroups', activeTab, 'messages'), {
           text: msgText, userId: user.uid,
           userName: senderName,
@@ -249,10 +254,8 @@ export default function Chat() {
           createdAt: serverTimestamp(),
         })
 
-        // Získání aktuální skupiny pro zjištění členů
         const currentGroup = groups.find(g => g.id === activeTab)
         if (currentGroup) {
-          // Rozeslání všem aktuálním schváleným členům skupiny kromě sebe
           currentGroup.members.forEach(async (memberId) => {
             if (memberId !== user.uid) {
               await sendPushNotification({
@@ -279,14 +282,12 @@ export default function Chat() {
     const finalGroupName = groupName.trim()
 
     try {
-      // Uložení skupiny do DB
       await addDoc(collection(db, 'chatGroups'), {
         name: finalGroupName, createdBy: user.uid,
         members: [user.uid], pendingMembers: inviteMembers,
         createdAt: serverTimestamp(),
       })
 
-      // Rozeslání push notifikace všem uživatelům, kteří dostali pozvánku
       inviteMembers.forEach(async (targetUserId) => {
         if (targetUserId !== user.uid) {
           await sendPushNotification({

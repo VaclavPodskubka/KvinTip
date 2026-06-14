@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { db } from '@/lib/firebase'
 import { collection, onSnapshot, addDoc, doc, updateDoc } from 'firebase/firestore'
 import toast from 'react-hot-toast'
+import { useSound } from '@/app/hooks/useSound' // <-- Přidán import zvukového hooku
 
 const ADMIN_UID = 'N6AQOKObzKX8vppAVL1siq6bnaG3'
 const LOCK_MINUTES_BEFORE = 5
@@ -56,6 +57,7 @@ const glass = {
 
 export default function Betting() {
   const { user } = useAuth()
+  const { playSound } = useSound() // <-- Aktivace zvukového hooku
   const isAdmin = user?.uid === ADMIN_UID
   const [events, setEvents] = useState<BettingEvent[]>([])
   const [bets, setBets] = useState<Bet[]>([])
@@ -184,6 +186,8 @@ export default function Betting() {
       status: 'pending', createdAt: new Date(),
     })
     await updateDoc(doc(db, 'users', user!.uid), { credits: (player.credits ?? 0) - amount })
+    
+    playSound('success') // <-- Přidán zvuk úspěšného vsazení
     toast.success(`Vsazeno ${amount} kreditů na kurz ${odds}!`)
     setBetAmounts(prev => ({ ...prev, [event.id]: 0 }))
     setBetPicks(prev => { const next = { ...prev }; delete next[event.id]; return next })
@@ -502,7 +506,7 @@ export default function Betting() {
 
               {showBets && eventBets.length === 0 && (
                 <div style={{ marginBottom: '14px', padding: '10px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>Zatím nikdo nesázeil.</p>
+                  <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>Zatím nikdo nesázel.</p>
                 </div>
               )}
 
@@ -552,7 +556,7 @@ export default function Betting() {
                   border: myBet.status === 'won' ? '1px solid rgba(74,222,128,0.25)' : myBet.status === 'lost' ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(255,255,255,0.07)',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                    <div style={{ minWidth: 0 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Tvoje sázka</p>
                       <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'white', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {myBet.pick === 'a' ? event.teamA : myBet.pick === 'b' ? event.teamB : 'Remíza'}
@@ -577,7 +581,6 @@ export default function Betting() {
                     type="number" min={1} placeholder="Kolik kreditů?"
                     value={betAmounts[event.id] || ''}
                     onChange={e => setBetAmounts(prev => ({ ...prev, [event.id]: Number(e.target.value) }))}
-                    // 16px prevents iOS zoom
                     style={{ flex: 1, fontSize: '16px', padding: '10px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', outline: 'none', minWidth: 0 }}
                   />
                   <button
@@ -608,19 +611,19 @@ export default function Betting() {
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
                     <button
-                      onClick={() => settleEvent(event.id, 'a')}
+                      onClick={() => { playSound('success'); settleEvent(event.id, 'a'); }}
                       style={{ fontSize: '0.75rem', fontWeight: 700, padding: '8px 4px', borderRadius: '10px', background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.35)', color: '#93c5fd', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                     >
                       🏆 {event.teamA}
                     </button>
                     <button
-                      onClick={() => settleEvent(event.id, 'draw')}
+                      onClick={() => { playSound('success'); settleEvent(event.id, 'draw'); }}
                       style={{ fontSize: '0.75rem', fontWeight: 700, padding: '8px 4px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}
                     >
                       🤝 Remíza
                     </button>
                     <button
-                      onClick={() => settleEvent(event.id, 'b')}
+                      onClick={() => { playSound('success'); settleEvent(event.id, 'b'); }}
                       style={{ fontSize: '0.75rem', fontWeight: 700, padding: '8px 4px', borderRadius: '10px', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', color: '#fca5a5', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                     >
                       🏆 {event.teamB}

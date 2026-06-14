@@ -6,6 +6,7 @@ import { signOut } from 'firebase/auth'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
+import { useSound } from '@/app/hooks/useSound' // <-- 1. Import našeho zvukového hooku
 
 const ADMIN_UID = 'N6AQOKObzKX8vppAVL1siq6bnaG3'
 
@@ -13,6 +14,7 @@ export default function Navbar() {
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const { playSound } = useSound() // <-- 2. Aktivace hooku uvnitř komponenty
   const [sliderStyle, setSliderStyle] = useState({ left: 0, width: 0 })
   const [menuOpen, setMenuOpen] = useState(false)
   const linkRefs = useRef<(HTMLAnchorElement | null)[]>([])
@@ -43,6 +45,7 @@ export default function Navbar() {
   }, [activeIndex, pathname])
 
   const handleLogout = async () => {
+    playSound('click') // <-- Zvuk při kliknutí na odhlášení
     await signOut(auth)
     router.push('/login')
   }
@@ -103,6 +106,7 @@ export default function Navbar() {
             return (
               <Link key={link.href} href={link.href}
                 ref={el => { linkRefs.current[i] = el }}
+                onClick={() => playSound('click')} // <-- Zvuk při kliknutí na odkaz v desktop menu
                 className="relative z-10 flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-colors duration-200 whitespace-nowrap"
                 style={{
                   color: active ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.45)',
@@ -142,7 +146,10 @@ export default function Navbar() {
 
         {/* MOBIL — hamburger tlačítko */}
         <button
-          onClick={() => setMenuOpen(prev => !prev)}
+          onClick={() => {
+            playSound('click') // <-- Zvuk při kliknutí na otevření/zavření mobilního menu
+            setMenuOpen(prev => !prev)
+          }}
           className="md:hidden flex flex-col justify-center items-center w-10 h-10 rounded-xl transition-all"
           style={{
             background: menuOpen ? 'rgba(168,85,247,0.2)' : 'rgba(255,255,255,0.05)',
@@ -184,7 +191,10 @@ export default function Navbar() {
               const active = pathname === link.href
               return (
                 <Link key={link.href} href={link.href}
-                  onClick={closeMenu}
+                  onClick={() => {
+                    playSound('click') // <-- Zvuk při kliknutí na odkaz v mobilním menu
+                    closeMenu()
+                  }}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all"
                   style={{
                     background: active ? 'rgba(168,85,247,0.2)' : 'transparent',

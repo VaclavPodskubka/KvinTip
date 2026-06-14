@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import MatchList from '@/components/MatchList'
 import { sendPushNotification } from '@/lib/sendPush' // <-- Přidán import pro push notifikace
+import { useSound } from '../hooks/useSound' // <-- 1. Přidán import zvukového hooku
 
 interface Player {
   uid: string
@@ -25,6 +26,7 @@ const glass = {
 
 export default function Matches() {
   const { user } = useAuth()
+  const { playSound } = useSound() // <-- 2. Aktivace hooku uvnitř komponenty
   const [players, setPlayers] = useState<Player[]>([])
   const [sport, setSport] = useState('Stolní fotbálek')
   const [format, setFormat] = useState('1v1')
@@ -139,6 +141,7 @@ export default function Matches() {
       status: 'pending',
       createdBy: user.uid,
       invitedPlayers: [...teamA, ...teamB],
+      textToSpeech: false,
       bettingPlayers: finalBettingPlayers,
       acceptedBy: [user.uid],
       createdAt: new Date(),
@@ -169,6 +172,7 @@ export default function Matches() {
       console.error('Chyba při odesílání hromadných push notifikací:', e)
     }
 
+    playSound('matchCreate') // <-- 3. Přehrání zvuku úspěšného vytvoření zápasu
     toast.success('Zápas vytvořen! Pozvánky odeslány.')
     setShowForm(false)
     setTeamA([])
@@ -270,7 +274,7 @@ export default function Matches() {
 
           {/* Týmy */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            {(['A', 'B'] as const).map(team => (
+            {(['A', 'B'] as const).map(team => ( // <-- ZDE OPRAVENO (odstraněno chybné Content =)
               <div key={team} style={{
                 padding: '16px',
                 borderRadius: '14px',
