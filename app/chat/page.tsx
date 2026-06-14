@@ -100,7 +100,7 @@ export default function Chat() {
     })
   }, [])
 
-  // 2. Načítání globálního chatu + lokální UI toast
+ // 2. Načítání globálního chatu + lokální UI toast
   useEffect(() => {
     const q = query(collection(db, 'globalChat'), orderBy('createdAt', 'asc'))
     let isFirstLoad = true
@@ -111,18 +111,16 @@ export default function Chat() {
       
       if (!isFirstLoad && activeTabRef.current !== 'global') {
         snap.docChanges().forEach(change => {
+          // Zvuk a toast se spustí POUZE při přidání nové zprávy od jiného uživatele
           if (change.type === 'added') {
             const newMsg = change.doc.data() as Message
-            if (newMsg.userId !== user?.uid && newMsg.createdAt && componentLoadTimeRef.current) {
-              const msgTime = newMsg.createdAt.seconds * 1000
-              if (msgTime > componentLoadTimeRef.current - 5000) {
-                playNotificationSound()
-                playChatSound()
-                toast(`🌍 ${newMsg.userName} (Veřejný chat): ${newMsg.text}`, {
-                  duration: 4000,
-                  style: { background: '#151525', color: '#fff', border: '1px solid rgba(168,85,247,0.4)' }
-                })
-              }
+            if (newMsg.userId !== user?.uid) {
+              playNotificationSound()
+              playChatSound()
+              toast(`🌍 ${newMsg.userName} (Veřejný chat): ${newMsg.text}`, {
+                duration: 4000,
+                style: { background: '#151525', color: '#fff', border: '1px solid rgba(168,85,247,0.4)' }
+              })
             }
           }
         })
@@ -190,18 +188,16 @@ export default function Chat() {
           const groupName = currentGroup ? currentGroup.name : 'Skupina'
 
           snap.docChanges().forEach(change => {
+            // Zvuk a toast se spustí POUZE při přidání nové zprávy od jiného uživatele
             if (change.type === 'added') {
               const newMsg = change.doc.data() as Message
-              if (newMsg.userId !== user.uid && newMsg.createdAt && componentLoadTimeRef.current) {
-                const msgTime = newMsg.createdAt.seconds * 1000
-                if (msgTime > componentLoadTimeRef.current - 5000) {
-                  playNotificationSound()
-                  playChatSound()
-                  toast(`💬 Nová zpráva ve skupině ${groupName} od ${newMsg.userName}: ${newMsg.text}`, {
-                    duration: 4000,
-                    style: { background: '#10101a', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)' }
-                  })
-                }
+              if (newMsg.userId !== user.uid) {
+                playNotificationSound()
+                playChatSound()
+                toast(`💬 Nová zpráva ve skupině ${groupName} od ${newMsg.userName}: ${newMsg.text}`, {
+                  duration: 4000,
+                  style: { background: '#10101a', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)' }
+                })
               }
             }
           })
